@@ -1,0 +1,5 @@
+agency_id,agency_name,agency_url,agency_timezone,agency_lang
+"03C","GoAhead Commuter","https://www.transportforireland.ie","Europe/Dublin","EN"
+"978","Dublin Bus","https://www.transportforireland.ie","Europe/Dublin","EN"
+"01","Bus Éireann","https://www.transportforireland.ie","Europe/Dublin","EN"
+"03","Go-Ahead","https://www.transportforireland.ie","Europe/Dublin","EN"
