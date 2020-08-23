@@ -5,10 +5,16 @@ py_binary(
     name = "main",
     srcs = ["main.py"],
     deps = [
+        ":httpd",
         ":nta",
         ":transit",
         "//gtfs_data:database",
     ],
+)
+
+py_library(
+    name = "httpd",
+    srcs = ["httpd.py"]
 )
 
 py_library(

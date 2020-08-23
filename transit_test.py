@@ -3,7 +3,7 @@ import gtfs_data.database
 import transit
 
 from google.protobuf import json_format
-from google.transit import gtfs_realtime_pb2
+from google.transit import gtfs_realtime_pb2    # type: ignore[import]
 
 import datetime
 import unittest
@@ -28,6 +28,15 @@ class TestTransit(unittest.TestCase):
 
     self.transit = transit.Transit(fetch, database)
 
+  def testDelta_Seconds(self):
+    t1 = datetime.time(10, 40, 00)
+    t2 = datetime.time(10, 45, 30)
+    t3 = datetime.time(15, 40, 00)
+
+    self.assertEqual(transit.delta_seconds(t1, t2), -330)
+    self.assertEqual(transit.delta_seconds(t2, t1), 330)
+    self.assertEqual(transit.delta_seconds(t3, t1), 18000)
+
   def testGetUpcoming(self):
     with unittest.mock.patch('transit.now') as mock_now:
         mock_now.return_value = datetime.datetime(2020, 8, 21, 7, 0, 0)
@@ -39,11 +48,11 @@ class TestTransit(unittest.TestCase):
         # Scheduled is 07:20:16, transit data reflects a 4 minute delay (240 secs) so we expect
         # the due time at 07:24:16.
         self.assertEqual(resp[0].route, '7A')
-        self.assertEqual(resp[0].due, datetime.time(7, 24, 16))
+        self.assertEqual(resp[0].dueTime, '07:24:16')
 
         # Scheduled arrival is 08:04:11, no delay.
         self.assertEqual(resp[1].route, '7')
-        self.assertEqual(resp[1].due, datetime.time(8, 4, 11))
+        self.assertEqual(resp[1].dueTime, '08:04:11')
 
   def testGetUpcomingIgnorePassedStop(self):
     """Same as testGetUpcoming except the mock time is 1 hour later.
@@ -60,7 +69,7 @@ class TestTransit(unittest.TestCase):
 
         # Scheduled arrival is 08:04:11, no delay.
         self.assertEqual(resp[0].route, '7')
-        self.assertEqual(resp[0].due, datetime.time(8, 4, 11))
+        self.assertEqual(resp[0].dueTime, '08:04:11')
 
 
 if __name__ == '__main__':

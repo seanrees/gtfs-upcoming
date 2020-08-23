@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import httpd
 import nta
 import gtfs_data.database
 import transit
@@ -7,9 +8,11 @@ import transit
 import argparse
 import collections
 import configparser
+import datetime
+import faulthandler
 import functools
+import json
 import logging
-import site
 import sys
 import time
 import urllib.request
@@ -47,12 +50,27 @@ def _read_config(filename: str) -> Configuration:
     raise
 
 
+class UpcomingJson:
+  def __init__(self, transit: transit.Transit, stops: List[str]):
+    self._transit = transit
+    self._stops = stops
+
+  def HandleRequest(self, req: httpd.RequestHandler) -> None:
+    data = self._transit.GetUpcoming(self._stops)
+    req.SendHeaders(200, 'application/json')
+    req.Send(json.dumps({
+      'current_timestamp': int(datetime.datetime.now().timestamp()),
+      'upcoming': [d.Dict() for d in data]
+    }))
+
+
 def main(argv: List[str]) -> None:
   """Initialises the program."""
 
   parser = argparse.ArgumentParser(prog=argv[0])
   parser.add_argument('--config', help='Configuration file (INI file)', default='config.ini')
   parser.add_argument('--env', help='Use Prod or Test endpoints', default='test', choices=['prod', 'test'])
+  parser.add_argument('--port', help='Port to run webserver on', default=6824)
   parser.add_argument('--gtfs', help='GTFS definitions', default='google_transit_combined')
   args = parser.parse_args()
 
@@ -83,19 +101,13 @@ def main(argv: List[str]) -> None:
   fetch_fn = functools.partial(nta.Fetch, config.api_key_primary, api_url)
   t = transit.Transit(fetch_fn, database)
 
-  while True:
-    up = t.GetUpcoming(config.interesting_stops)
-
-    for u in up:
-      print(u)
-
-    print()
-
-    try:
-      time.sleep(30)
-    except KeyboardInterrupt:
-      break
+  port = int(args.port)
+  logging.info("Starting HTTP server on port %d", port)
+  http = httpd.HTTPServer(port)
+  http.Register('/upcoming.json', UpcomingJson(t, config.interesting_stops).HandleRequest)
+  http.serve_forever()
 
 
 if __name__ == '__main__':
+  faulthandler.enable()
   main(sys.argv)

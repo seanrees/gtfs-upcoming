@@ -2,7 +2,7 @@ import gtfs_data.loader
 
 import logging
 import os
-from typing import AbstractSet, List, Dict, NamedTuple
+from typing import AbstractSet, Any, List, Dict, NamedTuple
 
 # From: https://developers.google.com/transit/gtfs/reference#routestxt
 ROUTE_TYPES = {
@@ -42,7 +42,7 @@ class Database:
     """
     self._data_dir = data_dir
     self._keep_stops = keep_stops
-    self._trip_db = {}
+    self._trip_db : Dict[str, Trip] = {}
 
   def Load(self):
     self._trip_db = self._LoadTripDB()
@@ -52,7 +52,7 @@ class Database:
     # so it didn't seem worthwhile to add the complexity.
     self._stops_db = self._Collect(self._Load('stops.txt'), 'stop_id')
 
-  def GetTrip(self, trip_id: str) -> Trip:
+  def GetTrip(self, trip_id: str):
     return self._trip_db.get(trip_id, None)
 
   def GetStop(self, stop_id: str) -> Dict[str,str]:
@@ -100,7 +100,7 @@ class Database:
       keep)
 
   def _Collect(self, data: List[Dict[str, str]], key_name: str, multi: bool=False):
-    ret = {}
+    ret : Dict[str, Any] = {}
 
     duplicates = 0
 

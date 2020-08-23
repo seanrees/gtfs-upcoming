@@ -1,9 +1,9 @@
 import aapipfix
 import datetime
 import logging
-from typing import Callable, List, NamedTuple
+from typing import Any, Callable, Dict, List, NamedTuple
 
-from google.transit import gtfs_realtime_pb2
+from google.transit import gtfs_realtime_pb2    # type: ignore[import]
 
 import gtfs_data.database
 
@@ -14,7 +14,12 @@ class Upcoming(NamedTuple):
   headsign: str
   destination: str
   direction: str
-  due: datetime.time
+  dueTime: str
+  dueInSeconds: float
+
+  def Dict(self) -> Dict[str,Any]:
+    """Wrap _asdict() so consumers don't need to know this is a namedtuple."""
+    return self._asdict()
 
 
 def now() -> datetime.datetime:
@@ -24,6 +29,11 @@ def now() -> datetime.datetime:
   indirection provides a mocking point.
   """
   return datetime.datetime.now()
+
+def delta_seconds(now: datetime.time, then: datetime.time) -> float:
+  """Returns time in seconds between two datetime.times"""
+  td = lambda t : datetime.timedelta(hours=t.hour, minutes=t.minute, seconds=t.second)
+  return (td(now) - td(then)).total_seconds()
 
 
 class Transit:
@@ -87,16 +97,17 @@ class Transit:
             break
 
       destination = self._database.GetStop(
-        trip_from_db.stop_times[-1]['stop_id']).get('stop_name', None)
+        trip_from_db.stop_times[-1]['stop_id']).get('stop_name', '')
 
       arrival_dt = datetime.datetime.strptime(arrival_time, '%H:%M:%S')
       if updated_arrival_time:
-        arrival_dt = datetime.datetime.strptime(updated_arrival_time, '%H:%M:%S')
+        arrival_dt = datetime.datetime.fromtimestamp(updated_arrival_time)
       elif delay:
         arrival_dt += datetime.timedelta(seconds=int(delay))
 
       arrival = arrival_dt.time()
-      if arrival < now().time():
+      current = now()
+      if arrival < current.time():
         continue
 
       route = trip_from_db.route['route_short_name']
@@ -107,6 +118,7 @@ class Transit:
         headsign=trip_from_db.trip_headsign,
         destination=destination,
         direction=trip_from_db.direction_id,
-        due=arrival))
+        dueTime=arrival.strftime("%H:%M:%S"),
+        dueInSeconds=delta_seconds(arrival, current.time())))
 
     return ret
