@@ -21,6 +21,34 @@ The display previously relied on the now-deprecated SmartDublin RTPI service.
 
 Then browse to http://127.0.0.1:6824/upcoming.json
 
+### Sample Output
+
+This output is subject to change.
+
+```
+{
+   "current_timestamp":1598471804,
+   "upcoming":[
+      {
+         "route":"7",
+         "route_type":"BUS",
+         "headsign":"Bride's Glen Bus Stop - Mountjoy Square Nth",
+         "direction":"1",
+         "dueTime":"20:57:01",
+         "dueInSeconds":17.0
+      },
+      {
+         "route":"7A",
+         "route_type":"BUS",
+         "headsign":"Loughlinstown Wood Estate - Mountjoy Square Nth",
+         "direction":"1",
+         "dueTime":"21:10:33",
+         "dueInSeconds":829.0
+      }
+   ]
+}
+```
+
 ## Build
 
 This project is built with [Bazel](http://bazel.build). If you have bazel,
