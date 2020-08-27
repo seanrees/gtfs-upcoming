@@ -1,0 +1,15 @@
+[Unit]
+Description=Realtime transit from GTFS feed
+Documentation=https://github.com/seanrees/gtfs-upcoming
+
+[Service]
+Restart=always
+User=nobody
+EnvironmentFile=/etc/default/gtfs-upcoming
+ExecStart=python3 /opt/gtfs-upcoming/bin/main $ARGS
+ExecReload=/bin/kill -HUP $MAINPID
+TimeoutStopSec=20s
+SendSIGKILL=no
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,6 @@
+#!/bin/sh
+
+set -e
+
+umask 022
+/opt/gtfs-upcoming/bin/update-database.sh

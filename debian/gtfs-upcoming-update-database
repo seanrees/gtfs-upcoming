@@ -1,0 +1,4 @@
+SHELL=/bin/sh
+PATH=/bin:/sbin:/usr/bin:/usr/sbin
+
+0 4 * * *   root    test -x /opt/gtfs-upcoming/bin/update-database.sh && /opt/gtfs-upcoming/bin/update-database.sh
