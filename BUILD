@@ -10,6 +10,7 @@ py_binary(
         ":nta",
         ":transit",
         "//gtfs_data:database",
+        requirement("prometheus_client")
     ],
 )
 
@@ -96,12 +97,18 @@ pkg_deb(
 
 py_library(
     name = "httpd",
-    srcs = ["httpd.py"]
+    srcs = ["httpd.py"],
+    deps = [
+        requirement("prometheus_client")
+    ]
 )
 
 py_library(
     name = "nta",
     srcs = ["nta.py"],
+    deps = [
+        requirement("prometheus_client")
+    ],
 )
 
 py_library(
@@ -116,6 +123,7 @@ py_library(
         ":aapipfix",
         "//gtfs_data:database",
         requirement("gtfs-realtime-bindings"),
+        requirement("prometheus_client")
     ],
 )
 

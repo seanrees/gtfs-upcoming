@@ -1,4 +1,5 @@
 load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+load("@pip_deps//:requirements.bzl", "requirement")
 
 py_library(
     name = "loader",
@@ -25,6 +26,7 @@ py_library(
     ],
     deps = [
         ":loader",
+        requirement("prometheus_client")
     ],
 )
 

@@ -1,11 +1,29 @@
+import gtfs_data.database
+
 import aapipfix
 import datetime
 import logging
 from typing import Any, Callable, Dict, List, NamedTuple
 
 from google.transit import gtfs_realtime_pb2    # type: ignore[import]
+import prometheus_client                        # type: ignore[import]
 
-import gtfs_data.database
+# Metrics
+MATCHED_TRIPS = prometheus_client.Summary(
+  'interesting_trips',
+  'Trips returned matching configured InterestingStops')
+
+DELAYED_TRIPS = prometheus_client.Summary(
+  'interesting_delayed_trips',
+  'Trips for InterestingStops that ran late')
+
+ENTITIES_RETURNED = prometheus_client.Summary(
+  'gtfs_returned_entities',
+  'Entities returned from API')
+
+ENTITIES_IGNORED = prometheus_client.Summary(
+  'gtfs_ignored_entities',
+  'Entities ignored in API, because they were not TripUpdates')
 
 
 class Upcoming(NamedTuple):
@@ -43,8 +61,6 @@ class Transit:
 
   def _LoadFromAPI(self) -> gtfs_realtime_pb2.FeedMessage:
     raw = self._fetch_fn()
-
-    logging.info('Fetched %d bytes from API', len(raw))
     ret = gtfs_realtime_pb2.FeedMessage()
     ret.ParseFromString(raw)
     return ret
@@ -52,12 +68,15 @@ class Transit:
   def GetUpcoming(self, interesting_stops: List[str]) -> List[Upcoming]:
     resp = self._LoadFromAPI()
     ret = []
+    delayed = 0
+    ignored = 0
 
-    logging.info('API returned %d entities', len(resp.entity))
+    ENTITIES_RETURNED.observe(len(resp.entity))
 
     for e in resp.entity:
       if not e.HasField('trip_update'):
         logging.info('API response has no trip_update, bailing')
+        ignored += 1
         continue
 
       trip_update = e.trip_update
@@ -69,8 +88,6 @@ class Transit:
       trip_from_db = self._database.GetTrip(trip.trip_id)
       if not trip_from_db:
         continue
-
-      logging.info('API returned trip of interest: "%s"', trip.trip_id)
 
       sequence = -1
       arrival_time = ""
@@ -99,16 +116,24 @@ class Transit:
       destination = self._database.GetStop(
         trip_from_db.stop_times[-1]['stop_id']).get('stop_name', '')
 
+      is_delayed = False
       arrival_dt = datetime.datetime.strptime(arrival_time, '%H:%M:%S')
       if updated_arrival_time:
         arrival_dt = datetime.datetime.fromtimestamp(updated_arrival_time)
+        is_delayed = True
       elif delay:
         arrival_dt += datetime.timedelta(seconds=int(delay))
+        is_delayed = True
 
       arrival = arrival_dt.time()
       current = now()
       if arrival < current.time():
         continue
+
+      # Only include delays at this point; we may have excluded trips immediately
+      # above if they had already passed our stop.
+      if is_delayed:
+        delayed += 1
 
       route = trip_from_db.route['route_short_name']
       route_type = gtfs_data.database.ROUTE_TYPES[trip_from_db.route['route_type']]
@@ -121,4 +146,8 @@ class Transit:
         dueTime=arrival.strftime("%H:%M:%S"),
         dueInSeconds=delta_seconds(arrival, current.time())))
 
+
+    ENTITIES_IGNORED.observe(ignored)
+    MATCHED_TRIPS.observe(len(ret))
+    DELAYED_TRIPS.observe(delayed)
     return ret

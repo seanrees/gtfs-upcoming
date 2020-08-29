@@ -4,6 +4,25 @@ import socketserver
 
 from typing import Callable, Dict
 
+import prometheus_client    # type: ignore[import]
+
+
+# Metrics
+REQUEST_COUNT = prometheus_client.Counter(
+  'http_requests_total',
+  'Requests to the internal webserver',
+  ['path'])
+
+RESPONSE_STATUS = prometheus_client.Counter(
+  'http_response_status_codes',
+  'HTTP response codes from the internal webserver',
+  ['code'])
+
+UNKNOWN_PATH_COUNT = prometheus_client.Counter(
+  'http_unknown_paths_total',
+  'Requests to unknown paths in the internal webserver')
+
+
 class RequestHandler(http.server.BaseHTTPRequestHandler):
   # Override StreamRequestHandler.timeout; applies to the
   # request socket.
@@ -13,11 +32,13 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
     h = self.server.Lookup(self.path)
     if h:
       h(self)
+      REQUEST_COUNT.labels(self.path).inc()
     else:
       self.Handle404()
+      UNKNOWN_PATH_COUNT.inc()
 
   def Handle404(self):
-    self.SendHeaders(200, 'text/html')
+    self.SendHeaders(404, 'text/html')
 
     html = self.GenerateHTMLHead('404 Not Found')
     html += f"<h1>404 Not Found</h1><p>Unknown path: {self.path}"
@@ -26,6 +47,8 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
     self.Send(html)
 
   def SendHeaders(self, code: int, contentType: str='text/html') -> None:
+    RESPONSE_STATUS.labels(code).inc()
+
     self.send_response(code)
     self.send_header('Content-type', contentType)
     self.end_headers()

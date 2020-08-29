@@ -4,6 +4,33 @@ import logging
 import os
 from typing import AbstractSet, Any, List, Dict, NamedTuple
 
+import prometheus_client    # type: ignore[import]
+
+
+# Metrics
+TRIPDB = prometheus_client.Summary(
+  'tripdb_loaded_trips',
+  'Trips loaded in the database')
+
+TRIPDB_REQUESTS = prometheus_client.Counter(
+  'tripdb_requests_total',
+  'Requests to the Trip DB',
+  ['found'])
+
+STOPSDB = prometheus_client.Summary(
+  'stopsdb_loaded_stops',
+  'Stops loaded in the database')
+
+STOPSDB_REQUESTS = prometheus_client.Counter(
+  'stopsdb_requests_total',
+  'Requests to the Stops DB',
+  ['found'])
+
+DATABASE_LOAD = prometheus_client.Summary(
+  'database_load_seconds',
+  'Time to load the database')
+
+
 # From: https://developers.google.com/transit/gtfs/reference#routestxt
 ROUTE_TYPES = {
   '0': 'TRAM',
@@ -44,19 +71,26 @@ class Database:
     self._keep_stops = keep_stops
     self._trip_db : Dict[str, Trip] = {}
 
+  @DATABASE_LOAD.time()
   def Load(self):
     self._trip_db = self._LoadTripDB()
+    TRIPDB.observe(len(self._trip_db.keys()))
 
     # If we need to constrain memory here at some point in future, we could
     # load just the stops listed in Trip.stop_times. There are ~10k stops now
     # so it didn't seem worthwhile to add the complexity.
     self._stops_db = self._Collect(self._Load('stops.txt'), 'stop_id')
+    STOPSDB.observe(len(self._stops_db.keys()))
 
   def GetTrip(self, trip_id: str):
-    return self._trip_db.get(trip_id, None)
+    ret = self._trip_db.get(trip_id, None)
+    TRIPDB_REQUESTS.labels(ret is not None).inc()
+    return ret
 
   def GetStop(self, stop_id: str) -> Dict[str,str]:
-    return self._stops_db.get(stop_id, None)
+    ret = self._stops_db.get(stop_id, None)
+    STOPSDB_REQUESTS.labels(ret is not None).inc()
+    return ret
 
   def _LoadTripDB(self) -> Dict[str, Trip]:
     # First we need to extract the interesting trips and sequences.

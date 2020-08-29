@@ -19,6 +19,14 @@ import urllib.request
 
 from typing import List, NamedTuple
 
+import prometheus_client    # type: ignore[import]
+
+
+# Metrics
+API_ENV = prometheus_client.Info(
+  'api_environment',
+  'NTA environment that gtfs-upcoming is bound')
+
 
 class Configuration(NamedTuple):
   api_key_primary: str
@@ -71,6 +79,7 @@ def main(argv: List[str]) -> None:
   parser.add_argument('--config', help='Configuration file (INI file)', default='config.ini')
   parser.add_argument('--env', help='Use Prod or Test endpoints', default='test', choices=['prod', 'test'])
   parser.add_argument('--port', help='Port to run webserver on', default=6824)
+  parser.add_argument('--promport', help='Port to run Prometheus webserver on', default=None)
   parser.add_argument('--gtfs', help='GTFS definitions', default='google_transit_combined')
   args = parser.parse_args()
 
@@ -80,6 +89,11 @@ def main(argv: List[str]) -> None:
       level=logging.DEBUG)
 
   logging.info('Starting up')
+
+  # We run Prometheus in a separate internal server. This is in case the main
+  # serving webserver locks/crashes, we will retain metrics insight.
+  if args.promport:
+    prometheus_client.start_http_server(int(args.promport))
 
   config = _read_config(args.config)
   if not config:
@@ -96,6 +110,7 @@ def main(argv: List[str]) -> None:
   api_url = nta.TEST_URL
   if args.env == 'prod':
     api_url = nta.PROD_URL
+  API_ENV.info({'name': args.env, 'url': api_url})
   logging.info('API endpoint = %s (%s)', args.env, api_url)
 
   fetch_fn = functools.partial(nta.Fetch, config.api_key_primary, api_url)

@@ -1,1 +1,1 @@
-ARGS="--gtfs=/var/cache/gtfs --env=prod --config=/etc/gtfs-upcoming/config.ini"
+ARGS="--gtfs=/var/cache/gtfs --env=prod --config=/etc/gtfs-upcoming/config.ini --promport=8000"
