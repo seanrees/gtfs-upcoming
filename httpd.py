@@ -26,7 +26,7 @@ UNKNOWN_PATH_COUNT = prometheus_client.Counter(
 class RequestHandler(http.server.BaseHTTPRequestHandler):
   # Override StreamRequestHandler.timeout; applies to the
   # request socket.
-  timeout = 1
+  timeout = 5
 
   def do_GET(self):
     h = self.server.Lookup(self.path)

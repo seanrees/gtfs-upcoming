@@ -58,18 +58,32 @@ def _read_config(filename: str) -> Configuration:
     raise
 
 
-class UpcomingJson:
+class TransitHandler:
   def __init__(self, transit: transit.Transit, stops: List[str]):
     self._transit = transit
     self._stops = stops
 
-  def HandleRequest(self, req: httpd.RequestHandler) -> None:
+  def HandleUpcoming(self, req: httpd.RequestHandler) -> None:
     data = self._transit.GetUpcoming(self._stops)
     req.SendHeaders(200, 'application/json')
     req.Send(json.dumps({
       'current_timestamp': int(datetime.datetime.now().timestamp()),
       'upcoming': [d.Dict() for d in data]
     }))
+
+  def HandleDebug(self, req: httpd.RequestHandler) -> None:
+    start = datetime.datetime.now()
+    pb = self._transit.LoadFromAPI()
+    stop = datetime.datetime.now()
+
+    req.SendHeaders(200, 'text/html')
+    html = req.GenerateHTMLHead('Debug')
+    html += f"<h1>Debug</h1><p>Interesting stops: {self._stops}</p>"
+    html += f"<pre>Received {pb.ByteSize()/1024:.6} kB in {(stop-start).total_seconds():.6} seconds</pre>"
+    html += f"<pre>{pb!s}</pre>"
+    html += req.GenerateHTMLFoot()
+
+    req.Send(html)
 
 
 def main(argv: List[str]) -> None:
@@ -119,7 +133,9 @@ def main(argv: List[str]) -> None:
   port = int(args.port)
   logging.info("Starting HTTP server on port %d", port)
   http = httpd.HTTPServer(port)
-  http.Register('/upcoming.json', UpcomingJson(t, config.interesting_stops).HandleRequest)
+  handler = TransitHandler(t, config.interesting_stops)
+  http.Register('/upcoming.json', handler.HandleUpcoming)
+  http.Register('/debugz', handler.HandleDebug)
   http.serve_forever()
 
 
