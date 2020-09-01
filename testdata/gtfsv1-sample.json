@@ -24,6 +24,14 @@
             "scheduleRelationship": "SCHEDULED"
           },
           {
+            "stopSequence": 27,
+            "departure": {
+              "time": 1597992859
+            },
+            "stopId": "8250DB003073",
+            "scheduleRelationship": "SCHEDULED"
+          },
+          {
             "stopSequence": 28,
             "arrival": {
               "delay": 240

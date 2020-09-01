@@ -114,7 +114,8 @@ class Transit:
               secs = int(stu.arrival.delay)
               updated_arrival_time += datetime.timedelta(seconds=secs)
             if stu.arrival.HasField('time'):
-              updated_arrival_time = parseTime(stu.arrival.time)
+              updated_arrival_time = datetime.datetime.fromtimestamp(
+                stu.arrival.time)
         else:
             # We don't need to read anything past our stop.
             break
