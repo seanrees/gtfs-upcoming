@@ -81,6 +81,11 @@ class TestDatabase(unittest.TestCase):
       self.assertIsNotNone(t.stop_times)
       self.assertEqual(len(t.stop_times), data['num_stop_times'])
 
+  def testLoadAll(self):
+    database = gtfs_data.database.Database(GTFS_DATA, [])
+    database.Load()
+    self.assertEqual(database._trip_db.keys(), set(['1167', '1168', '1169']))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,5 +1,6 @@
 import logging
 import http.server
+import urllib.parse
 import socketserver
 
 from typing import Callable, Dict
@@ -29,7 +30,11 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
   timeout = 5
 
   def do_GET(self):
-    h = self.server.Lookup(self.path)
+    pr = urllib.parse.urlparse(self.path)
+    path = pr.path
+    self.params = urllib.parse.parse_qs(pr.query)
+
+    h = self.server.Lookup(path)
     if h:
       h(self)
       REQUEST_COUNT.labels(self.path).inc()

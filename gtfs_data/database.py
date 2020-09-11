@@ -65,10 +65,12 @@ class Database:
 
     Args:
       data_dir: path to the GTFS data package
-      keep_stops: a list of stops to filter the database data on
+      keep_stops: a list of stops to filter the database data on. If keep_stops is empty,
+        ALL stops are kept.
     """
     self._data_dir = data_dir
     self._keep_stops = keep_stops
+    self._load_all_stops = len(keep_stops) == 0
     self._trip_db : Dict[str, Trip] = {}
 
   @DATABASE_LOAD.time()
@@ -94,8 +96,10 @@ class Database:
 
   def _LoadTripDB(self) -> Dict[str, Trip]:
     # First we need to extract the interesting trips and sequences.
-    tmp_trips = self._Collect(
-      self._Load('stop_times.txt', {'stop_id': set(self._keep_stops)}),
+    fltr = None
+    if not self._load_all_stops:
+      fltr = {'stop_id': set(self._keep_stops)}
+    tmp_trips = self._Collect(self._Load('stop_times.txt', fltr),
       'trip_id',
       multi=True)
 

@@ -47,7 +47,12 @@ def _read_config(filename: str) -> Configuration:
   try:
     pri = config['NTA']['PrimaryApiKey']
     sec = config['NTA']['SecondaryApiKey']
-    stops = config['Upcoming']['InterestingStopIds'].split(',')
+
+    stops = config.get('Upcoming', 'InterestingStopIds', fallback=None)
+    if stops:
+      stops = stops.split(',')
+    else:
+      stops = []
 
     return Configuration(
       api_key_primary=pri,
@@ -64,7 +69,9 @@ class TransitHandler:
     self._stops = stops
 
   def HandleUpcoming(self, req: httpd.RequestHandler) -> None:
-    data = self._transit.GetUpcoming(self._stops)
+    stops = req.params.get('stop', self._stops)
+
+    data = self._transit.GetUpcoming(stops)
     req.SendHeaders(200, 'application/json')
     req.Send(json.dumps({
       'current_timestamp': int(datetime.datetime.now().timestamp()),
@@ -113,8 +120,12 @@ def main(argv: List[str]) -> None:
   if not config:
     exit(-1)
 
-  logging.info('Loading GTFS data sources from "%s" for %d stops...',
-    args.gtfs, len(config.interesting_stops))
+  logging.info('Loading GTFS data sources from "%s"', args.gtfs)
+  if config.interesting_stops:
+    logging.info('Restricting data sources to %d interesting stops',
+      len(config.interesting_stops))
+  else:
+    logging.info('Loading data for all stops.')
 
   database = gtfs_data.database.Database(
     args.gtfs, config.interesting_stops)
