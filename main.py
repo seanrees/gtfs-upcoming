@@ -48,11 +48,10 @@ def _read_config(filename: str) -> Configuration:
     pri = config['NTA']['PrimaryApiKey']
     sec = config['NTA']['SecondaryApiKey']
 
-    stops = config.get('Upcoming', 'InterestingStopIds', fallback=None)
-    if stops:
-      stops = stops.split(',')
-    else:
-      stops = []
+    stops : List[str] = []
+    stop_ids = config.get('Upcoming', 'InterestingStopIds', fallback=None)
+    if stop_ids:
+      stops = stop_ids.split(',')
 
     return Configuration(
       api_key_primary=pri,

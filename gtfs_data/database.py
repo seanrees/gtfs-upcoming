@@ -96,12 +96,13 @@ class Database:
 
   def _LoadTripDB(self) -> Dict[str, Trip]:
     # First we need to extract the interesting trips and sequences.
-    fltr = None
-    if not self._load_all_stops:
-      fltr = {'stop_id': set(self._keep_stops)}
-    tmp_trips = self._Collect(self._Load('stop_times.txt', fltr),
-      'trip_id',
-      multi=True)
+    if self._load_all_stops:
+      tmp_stop_times = self._Load('stop_times.txt')
+    else:
+      tmp_stop_times = self._Load('stop_times.txt',
+        {'stop_id': set(self._keep_stops)})
+
+    tmp_trips = self._Collect(tmp_stop_times, 'trip_id', multi=True)
 
     # Now collect the Trip->List of stops
     stop_times = self._Collect(
