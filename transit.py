@@ -10,7 +10,7 @@ import prometheus_client                        # type: ignore[import]
 
 # Metrics
 MATCHED_TRIPS = prometheus_client.Summary(
-  'interesting_trips',
+  'gtfs_interesting_trips',
   'Trips returned matching configured InterestingStops',
   ['state'])
 

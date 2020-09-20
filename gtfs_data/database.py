@@ -9,25 +9,25 @@ import prometheus_client    # type: ignore[import]
 
 # Metrics
 TRIPDB = prometheus_client.Summary(
-  'tripdb_loaded_trips',
+  'gtfs_tripdb_loaded_trips',
   'Trips loaded in the database')
 
 TRIPDB_REQUESTS = prometheus_client.Counter(
-  'tripdb_requests_total',
+  'gtfs_tripdb_requests_total',
   'Requests to the Trip DB',
   ['found'])
 
 STOPSDB = prometheus_client.Summary(
-  'stopsdb_loaded_stops',
+  'gtfs_stopsdb_loaded_stops',
   'Stops loaded in the database')
 
 STOPSDB_REQUESTS = prometheus_client.Counter(
-  'stopsdb_requests_total',
+  'gtfs_stopsdb_requests_total',
   'Requests to the Stops DB',
   ['found'])
 
 DATABASE_LOAD = prometheus_client.Summary(
-  'database_load_seconds',
+  'gtfs_database_load_seconds',
   'Time to load the database')
 
 

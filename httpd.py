@@ -10,17 +10,17 @@ import prometheus_client    # type: ignore[import]
 
 # Metrics
 REQUEST_COUNT = prometheus_client.Counter(
-  'http_requests_total',
+  'gtfs_http_requests_total',
   'Requests to the internal webserver',
   ['path'])
 
 RESPONSE_STATUS = prometheus_client.Counter(
-  'http_response_status_codes',
+  'gtfs_http_response_status_codes',
   'HTTP response codes from the internal webserver',
   ['code'])
 
 UNKNOWN_PATH_COUNT = prometheus_client.Counter(
-  'http_unknown_paths_total',
+  'gtfs_http_unknown_paths_total',
   'Requests to unknown paths in the internal webserver')
 
 

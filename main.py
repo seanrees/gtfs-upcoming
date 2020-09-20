@@ -24,7 +24,7 @@ import prometheus_client    # type: ignore[import]
 
 # Metrics
 API_ENV = prometheus_client.Info(
-  'api_environment',
+  'gtfs_api_environment',
   'NTA environment that gtfs-upcoming is bound')
 
 
