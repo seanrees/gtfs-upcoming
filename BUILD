@@ -123,7 +123,8 @@ py_library(
         ":aapipfix",
         "//gtfs_data:database",
         requirement("gtfs-realtime-bindings"),
-        requirement("prometheus_client")
+        requirement("prometheus_client"),
+        requirement("six")
     ],
 )
 
