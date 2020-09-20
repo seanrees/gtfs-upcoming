@@ -17,15 +17,6 @@ TRIPDB_REQUESTS = prometheus_client.Counter(
   'Requests to the Trip DB',
   ['found'])
 
-STOPSDB = prometheus_client.Summary(
-  'gtfs_stopsdb_loaded_stops',
-  'Stops loaded in the database')
-
-STOPSDB_REQUESTS = prometheus_client.Counter(
-  'gtfs_stopsdb_requests_total',
-  'Requests to the Stops DB',
-  ['found'])
-
 DATABASE_LOAD = prometheus_client.Summary(
   'gtfs_database_load_seconds',
   'Time to load the database')
@@ -78,20 +69,9 @@ class Database:
     self._trip_db = self._LoadTripDB()
     TRIPDB.observe(len(self._trip_db.keys()))
 
-    # If we need to constrain memory here at some point in future, we could
-    # load just the stops listed in Trip.stop_times. There are ~10k stops now
-    # so it didn't seem worthwhile to add the complexity.
-    self._stops_db = self._Collect(self._Load('stops.txt'), 'stop_id')
-    STOPSDB.observe(len(self._stops_db.keys()))
-
   def GetTrip(self, trip_id: str):
     ret = self._trip_db.get(trip_id, None)
     TRIPDB_REQUESTS.labels(ret is not None).inc()
-    return ret
-
-  def GetStop(self, stop_id: str) -> Dict[str,str]:
-    ret = self._stops_db.get(stop_id, None)
-    STOPSDB_REQUESTS.labels(ret is not None).inc()
     return ret
 
   def _LoadTripDB(self) -> Dict[str, Trip]:

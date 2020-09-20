@@ -41,15 +41,6 @@ class TestDatabase(unittest.TestCase):
     notfound = self.database.GetTrip('1168')
     self.assertIsNone(notfound)
 
-  def testGetStop(self):
-    self.database.Load()
-    found = self.database.GetStop('8220DB001023')
-    self.assertIsNotNone(found)
-    self.assertEqual(found['stop_name'], 'Rathmines Close, stop 1023')
-
-    notfound = self.database.GetStop('foobar')
-    self.assertIsNone(notfound)
-
   def testLoad(self):
     self.database.Load()
 
