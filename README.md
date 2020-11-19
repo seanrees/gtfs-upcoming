@@ -6,6 +6,11 @@ This consumes a GTFS realtime feed and produces a list of upcoming
 buses (and trains, trams, etc.) for a given stops. This list is
 served via HTTP in JSON format at /upcoming.json.
 
+/upcoming.json will serve both live (currently operating) and scheduled services
+(from the GTFS data). Live data takes precedence over scheduled data for the same
+trip. If a stop is near an origin of a service, live data may not yet be
+available.
+
 This was developed against the Irish [NTA's GTFS-R feed](https://developer.nationaltransport.ie/api-details#api=gtfsr).
 
 This is part of a personal project for an live upcoming transit display.
@@ -30,20 +35,24 @@ This output is subject to change.
    "current_timestamp":1598471804,
    "upcoming":[
       {
+         "trip_id":"ABCDEF",
          "route":"7",
          "route_type":"BUS",
          "headsign":"Bride's Glen Bus Stop - Mountjoy Square Nth",
          "direction":"1",
          "dueTime":"20:57:01",
-         "dueInSeconds":17.0
+         "dueInSeconds":17.0,
+         "source": "LIVE",
       },
       {
+         "trip_id":"GHIJKL",
          "route":"7A",
          "route_type":"BUS",
          "headsign":"Loughlinstown Wood Estate - Mountjoy Square Nth",
          "direction":"1",
          "dueTime":"21:10:33",
-         "dueInSeconds":829.0
+         "dueInSeconds":829.0,
+         "source": "SCHEDULE"
       }
    ]
 }
@@ -53,8 +62,12 @@ This output is subject to change.
 
 Endpoint | Arguments | Notes
 -------- | --------- | -----
-/upcoming.json | _(none)_ | Shows real-time data if Interesting Stops provided
-/upcoming.json | ?stop=123&stop=456 | Shows real-time data for stops 123 and 456
+/upcoming.json | _(none)_ | Shows real-time & scheduled data if Interesting Stops provided.
+/upcoming.json | ?stop=123&stop=456 | Shows real-time & scheduled data for stops 123 and 456
+/live.json | _(none)_ | Shows just real-time data if Interesting Stops provided
+/live.json | ?stop=123&stop=456 | Shows just real-time data for stops 123 and 456
+/scheduled.json | _(none)_ | Shows just scheduled data if Interesting Stops provided
+/scheduled.json | ?stop=123&stop=456 | Shows just scheduled data for stops 123 and 456
 /debugz | _(none)_ | Debug endpoint for GTFS API calls
 :8000 | _(none)_ | Prometheus metrics, if --promport is specified
 

@@ -91,7 +91,7 @@ pkg_deb(
     description_file = "debian/description",
     maintainer = "Sean Rees <sean at erifax.org>",
     package = "gtfs-upcoming",
-    version = "0.0.1",
+    version = "0.0.2",
 )
 
 
@@ -139,7 +139,8 @@ py_test(
         requirement("gtfs-realtime-bindings"),
     ],
     data = [
-        "testdata/gtfsv1-sample.json",
+        "testdata/gtfsv1-sample-onetrip.json",
+        "testdata/gtfsv1-sample-twotrips.json",
         "//gtfs_data:exported_testdata"
     ]
 )

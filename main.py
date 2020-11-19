@@ -77,6 +77,30 @@ class TransitHandler:
       'upcoming': [d.Dict() for d in data]
     }))
 
+  def HandleScheduled(self, req: httpd.RequestHandler) -> None:
+    stops = req.params.get('stop', self._stops)
+    now = datetime.datetime.now()
+
+    data = self._transit.GetScheduled(stops)
+
+    req.SendHeaders(200, 'application/json')
+    req.Send(json.dumps({
+      'current_timestamp': int(datetime.datetime.now().timestamp()),
+      'scheduled': [d.Dict() for d in data]
+    }))
+
+  def HandleLive(self, req: httpd.RequestHandler) -> None:
+    stops = req.params.get('stop', self._stops)
+    now = datetime.datetime.now()
+
+    data = self._transit.GetLive(stops)
+
+    req.SendHeaders(200, 'application/json')
+    req.Send(json.dumps({
+      'current_timestamp': int(datetime.datetime.now().timestamp()),
+      'live': [d.Dict() for d in data]
+    }))
+
   def HandleDebug(self, req: httpd.RequestHandler) -> None:
     start = datetime.datetime.now()
     pb = self._transit.LoadFromAPI()
@@ -145,6 +169,8 @@ def main(argv: List[str]) -> None:
   http = httpd.HTTPServer(port)
   handler = TransitHandler(t, config.interesting_stops)
   http.Register('/upcoming.json', handler.HandleUpcoming)
+  http.Register('/scheduled.json', handler.HandleScheduled)
+  http.Register('/live.json', handler.HandleLive)
   http.Register('/debugz', handler.HandleDebug)
   http.serve_forever()
 

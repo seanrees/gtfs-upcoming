@@ -1,0 +1,49 @@
+{
+  "header": {
+    "gtfsRealtimeVersion": "1.0",
+    "timestamp": "1597992859"
+  },
+  "entity": [
+    {
+      "id": "14068-00006-1",
+      "tripUpdate": {
+        "trip": {
+          "tripId": "1167",
+          "startTime": "07:00:00",
+          "startDate": "20200821",
+          "scheduleRelationship": "SCHEDULED",
+          "routeId": "60-7A-b12-1"
+        },
+        "stopTimeUpdate": [
+          {
+            "stopSequence": 1,
+            "departure": {
+              "delay": 0
+            },
+            "stopId": "8250DB003222",
+            "scheduleRelationship": "SCHEDULED"
+          },
+          {
+            "stopSequence": 27,
+            "departure": {
+              "time": 1597992859
+            },
+            "stopId": "8250DB003073",
+            "scheduleRelationship": "SCHEDULED"
+          },
+          {
+            "stopSequence": 28,
+            "arrival": {
+              "delay": 240
+            },
+            "departure": {
+              "delay": 240
+            },
+            "stopId": "8250DB003074",
+            "scheduleRelationship": "SCHEDULED"
+          }
+        ]
+      }
+    }
+  ]
+}

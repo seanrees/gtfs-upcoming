@@ -23,19 +23,27 @@ ENTITIES_IGNORED = prometheus_client.Summary(
   'Entities ignored in API, because they were not TripUpdates or not Scheduled',
   ['reason'])
 
+SCHEDULED_RETURNED = prometheus_client.Summary(
+  'gtfs_transit_scheduled_trips_returned',
+  'Number of scheduled trips returned'
+)
 
-class Upcoming(NamedTuple):
-  route: str
-  route_type: str
-  headsign: str
-  direction: str
-  stop_id: str
-  dueTime: str
-  dueInSeconds: float
+SCHEDULED_AND_LIVE = prometheus_client.Summary(
+  'gtfs_transit_scheduled_trips_matching_live',
+  'Number of scheduled trips returned that are also in the live feed'
+)
 
-  def Dict(self) -> Dict[str,Any]:
-    """Wrap _asdict() so consumers don't need to know this is a namedtuple."""
-    return self._asdict()
+UPCOMING_TIME = prometheus_client.Summary(
+  'gtfs_transit_getupcoming_run_seconds',
+  'Time to run GetUpcoming')
+
+SCHEDULED_TIME = prometheus_client.Summary(
+  'gtfs_transit_getscheduled_run_seconds',
+  'Time to run GetScheduled')
+
+LIVE_TIME = prometheus_client.Summary(
+  'gtfs_transit_getlive_run_seconds',
+  'Time to run GetLive')
 
 
 def now() -> datetime.datetime:
@@ -58,6 +66,36 @@ def delta_seconds(now: datetime.time, then: datetime.time) -> float:
   return (td(now) - td(then)).total_seconds()
 
 
+class Upcoming(NamedTuple):
+  trip_id: str
+  route: str
+  route_type: str
+  headsign: str
+  direction: str
+  stop_id: str
+  dueTime: str
+  dueInSeconds: float
+  source: str
+
+
+  def Dict(self) -> Dict[str,Any]:
+    """Wrap _asdict() so consumers don't need to know this is a namedtuple."""
+    return self._asdict()
+
+  @classmethod
+  def FromTrip(cls, trip: gtfs_data.database.Trip, stop_id: str, source: str, due: str, currentTime: datetime.time):
+    return cls(
+      trip_id=trip.trip_id,
+      route=trip.route['route_short_name'],
+      route_type=gtfs_data.database.ROUTE_TYPES[trip.route['route_type']],
+      headsign=trip.trip_headsign,
+      direction=trip.direction_id,
+      stop_id=stop_id,
+      dueTime=due,
+      dueInSeconds=delta_seconds(parseTime(due).time(), currentTime),
+      source=source)
+
+
 class Transit:
   def __init__(self, fetch_fn: Callable[[], bytes], db: gtfs_data.database.Database):
     self._fetch_fn = fetch_fn
@@ -69,7 +107,32 @@ class Transit:
     ret.ParseFromString(raw)
     return ret
 
-  def GetUpcoming(self, interesting_stops: List[str]) -> List[Upcoming]:
+  @SCHEDULED_TIME.time()
+  def GetScheduled(self, interesting_stops: List[str]) -> List[Upcoming]:
+    start = now()
+    end = now() + datetime.timedelta(minutes=120)
+
+    ret : List[Upcoming] = []
+
+    for stop_id in interesting_stops:
+      trips = self._database.GetScheduledFor(stop_id, start, end)
+
+      for t in trips:
+        due = ''
+
+        for s in t.stop_times:
+          if s['stop_id'] == stop_id:
+            due = s['arrival_time']
+            break
+
+        ret.append(Upcoming.FromTrip(t, stop_id, 'SCHEDULE', due, now().time()))
+
+    SCHEDULED_RETURNED.observe(len(ret))
+
+    return sorted(ret, key=lambda x: x.dueInSeconds)
+
+  @LIVE_TIME.time()
+  def GetLive(self, interesting_stops: List[str]) -> List[Upcoming]:
     resp = self.LoadFromAPI()
     ret = []
     early = 0
@@ -78,7 +141,7 @@ class Transit:
     notUpdate = 0
     notScheduled = 0
 
-    current = now().time()
+    current = now()
 
     for e in resp.entity:
       if not e.HasField('trip_update'):
@@ -120,7 +183,7 @@ class Transit:
             # We don't need to read anything past our stop.
             break
 
-      if current > updated_arrival_time.time():
+      if current.time() > updated_arrival_time.time():
         continue
 
       if updated_arrival_time < arrival_time:
@@ -130,17 +193,8 @@ class Transit:
       else:
         delayed += 1
 
-      route = trip_from_db.route['route_short_name']
-      route_type = gtfs_data.database.ROUTE_TYPES[trip_from_db.route['route_type']]
-      ret.append(Upcoming(
-        route=route,
-        route_type=route_type,
-        headsign=trip_from_db.trip_headsign,
-        direction=trip_from_db.direction_id,
-        stop_id=stop_id,
-        dueTime=updated_arrival_time.strftime("%H:%M:%S"),
-        dueInSeconds=delta_seconds(updated_arrival_time.time(), current)))
-
+      due = updated_arrival_time.strftime("%H:%M:%S")
+      ret.append(Upcoming.FromTrip(trip_from_db, stop_id, 'LIVE', due, current.time()))
 
     MATCHED_TRIPS.labels('ontime').observe(ontime)
     MATCHED_TRIPS.labels('early').observe(early)
@@ -150,3 +204,24 @@ class Transit:
     ENTITIES_RETURNED.observe(len(resp.entity))
 
     return ret
+
+  @UPCOMING_TIME.time()
+  def GetUpcoming(self, interesting_stops: List[str]) -> List[Upcoming]:
+    ret : List[Upcoming] = []
+
+    scheduled = self.GetScheduled(interesting_stops)
+    known_trips = {s.trip_id: s for s in scheduled}
+    known_count = 0
+
+    ret = self.GetLive(interesting_stops)
+    for t in ret:
+      if t.trip_id in known_trips:
+        del known_trips[t.trip_id]
+        known_count += 1
+
+    for v in known_trips.values():
+      ret.append(v)
+
+    SCHEDULED_AND_LIVE.observe(known_count)
+
+    return sorted(ret, key=lambda x: x.dueInSeconds)

@@ -9,13 +9,14 @@ import datetime
 import unittest
 import unittest.mock
 
-TEST_FEEDMESSAGE = 'testdata/gtfsv1-sample.json'
+TEST_FEEDMESSAGE_ONE = 'testdata/gtfsv1-sample-onetrip.json'
+TEST_FEEDMESSAGE_TWO = 'testdata/gtfsv1-sample-twotrips.json'
 INTERESTING_STOPS = ['8250DB003076']    # seq 30 for 1167, 25 for 1169
 GTFS_DATA = 'gtfs_data/testdata'
 
-def fetch():
+def fetch(input_file: str):
   """Simulates a real API call."""
-  with open(TEST_FEEDMESSAGE, 'r') as f:
+  with open(input_file, 'r') as f:
     json = f.read()
 
   pb = json_format.Parse(json, gtfs_realtime_pb2.FeedMessage())
@@ -26,7 +27,12 @@ class TestTransit(unittest.TestCase):
     database = gtfs_data.database.Database(GTFS_DATA, INTERESTING_STOPS)
     database.Load()
 
-    self.transit = transit.Transit(fetch, database)
+    self.fetch_input = TEST_FEEDMESSAGE_TWO
+    self.transit = transit.Transit(self.fetch, database)
+
+  def fetch(self):
+    """Simple wrapper to allow a test to specify which file it wants."""
+    return fetch(self.fetch_input)
 
   def testDelta_Seconds(self):
     t1 = datetime.time(10, 40, 00)
@@ -37,11 +43,11 @@ class TestTransit(unittest.TestCase):
     self.assertEqual(transit.delta_seconds(t2, t1), 330)
     self.assertEqual(transit.delta_seconds(t3, t1), 18000)
 
-  def testGetUpcoming(self):
+  def testGetLive(self):
     with unittest.mock.patch('transit.now') as mock_now:
-        mock_now.return_value = datetime.datetime(2020, 8, 21, 7, 0, 0)
+        mock_now.return_value = datetime.datetime(2020, 8, 20, 7, 0, 0)
 
-        resp = self.transit.GetUpcoming(INTERESTING_STOPS)
+        resp = self.transit.GetLive(INTERESTING_STOPS)
 
         self.assertEqual(2, len(resp))
 
@@ -54,22 +60,63 @@ class TestTransit(unittest.TestCase):
         self.assertEqual(resp[1].route, '7')
         self.assertEqual(resp[1].dueTime, '08:04:11')
 
-  def testGetUpcomingIgnorePassedStop(self):
-    """Same as testGetUpcoming except the mock time is 1 hour later.
+  def testGetLiveIgnorePassedStop(self):
+    """Same as testGetLive except the mock time is 1 hour later.
 
     At this time, route 7A  (trip 1167) has passed the stop of interest so it should
     not come back in the dataset.
     """
     with unittest.mock.patch('transit.now') as mock_now:
-        mock_now.return_value = datetime.datetime(2020, 8, 21, 8, 0, 0)
+        mock_now.return_value = datetime.datetime(2020, 8, 20, 8, 0, 0)
 
-        resp = self.transit.GetUpcoming(INTERESTING_STOPS)
+        resp = self.transit.GetLive(INTERESTING_STOPS)
 
         self.assertEqual(1, len(resp))
 
         # Scheduled arrival is 08:04:11, no delay.
         self.assertEqual(resp[0].route, '7')
         self.assertEqual(resp[0].dueTime, '08:04:11')
+
+  def testGetScheduled(self):
+    with unittest.mock.patch('transit.now') as mock_now:
+        mock_now.return_value = datetime.datetime(2020, 8, 20, 7, 00, 0)
+
+        resp = self.transit.GetScheduled(INTERESTING_STOPS)
+        self.assertEqual(2, len(resp))
+        self.assertEqual(resp[0].route, '7A')
+        self.assertEqual(resp[0].dueTime, '07:20:16')
+        self.assertEqual(resp[0].source, 'SCHEDULE')
+        self.assertEqual(resp[1].route, '7')
+        self.assertEqual(resp[1].dueTime, '08:04:11')
+        self.assertEqual(resp[1].source, 'SCHEDULE')
+
+  def testGetScheduledIgnorePassedStop(self):
+    """Same as testGetLive except the mock time is 1 hour later."""
+    with unittest.mock.patch('transit.now') as mock_now:
+        mock_now.return_value = datetime.datetime(2020, 8, 20, 8, 00, 0)
+
+        resp = self.transit.GetScheduled(INTERESTING_STOPS)
+        self.assertEqual(1, len(resp))
+        self.assertEqual(resp[0].route, '7')
+        self.assertEqual(resp[0].dueTime, '08:04:11')
+        self.assertEqual(resp[0].source, 'SCHEDULE')
+
+  def testGetUpcoming(self):
+    # Use only one trip; this means GetUpcoming will have to merge the live
+    # and schedule.
+    self.fetch_input = TEST_FEEDMESSAGE_ONE
+
+    with unittest.mock.patch('transit.now') as mock_now:
+        mock_now.return_value = datetime.datetime(2020, 8, 20, 7, 00, 0)
+
+        resp = self.transit.GetUpcoming(INTERESTING_STOPS)
+        self.assertEqual(2, len(resp))
+        self.assertEqual(resp[0].route, '7A')
+        self.assertEqual(resp[0].dueTime, '07:24:16')
+        self.assertEqual(resp[0].source, 'LIVE')
+        self.assertEqual(resp[1].route, '7')
+        self.assertEqual(resp[1].dueTime, '08:04:11')
+        self.assertEqual(resp[1].source, 'SCHEDULE')
 
 
 if __name__ == '__main__':
