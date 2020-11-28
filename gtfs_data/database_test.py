@@ -80,18 +80,29 @@ class TestDatabase(unittest.TestCase):
 
 
   def testGetScheduledFor(self):
-    self.database.Load()
+    database = gtfs_data.database.Database(GTFS_DATA, [])
+    database.Load()
 
     stop_id = INTERESTING_STOPS[0]
     start = datetime.datetime(2020, 11, 19, 7, 30, 00)
     stop = datetime.datetime(2020, 11, 19, 8, 30, 00)
-    resp = self.database.GetScheduledFor(stop_id, start, stop)
+    resp = database.GetScheduledFor(stop_id, start, stop)
 
     # Note: GetScheduledFor sorts on arrival time; so the order here is
     # predictable.
     self.assertEqual(len(resp), 2)
-    self.assertEqual(resp[0].trip_id, "1167")
-    self.assertEqual(resp[1].trip_id, "1169")
+    self.assertEqual(resp[0].trip_id, '1167')
+    self.assertEqual(resp[1].trip_id, '1169')
+
+    # This trip's schedule has no exceptions; ensure we don't error
+    # out loading it. Note: the stop id below is not in INTERESTING_STOPS
+    # so we don't get it by default from setUp().
+    stop_id = '8220DB000819'
+    start = datetime.datetime(2020, 11, 19, 20, 00, 00)
+    stop = datetime.datetime(2020, 11, 19, 21, 00, 00)
+    resp = database.GetScheduledFor(stop_id, start, stop)
+    self.assertEqual(len(resp), 1)
+    self.assertEqual(resp[0].trip_id, '1168')
 
 
   def testGetScheduledForExceptions(self):

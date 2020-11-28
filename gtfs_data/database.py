@@ -131,7 +131,7 @@ class Database:
         logging.error('service "%s" not found in database', trip.service_id)
         continue
 
-      exc = self._exceptions_db[trip.service_id].get(start.date())
+      exc = self._exceptions_db.get(trip.service_id, {}).get(start.date())
       if service.get(day) == CALENDAR_SERVICE_NOT_AVAILABLE:
         if exc != CALENDAR_EXCEPTION_SERVICE_ADDED:
           continue
