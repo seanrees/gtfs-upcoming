@@ -46,7 +46,7 @@ CALENDAR_DAYS = [
   'wednesday',
   'thursday',
   'friday',
-  'saturday'
+  'saturday',
   'sunday',
 ]
 

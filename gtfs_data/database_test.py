@@ -122,5 +122,9 @@ class TestDatabase(unittest.TestCase):
     resp = self.database.GetScheduledFor(stop_id, start, stop)
     self.assertEqual(len(resp), 2)
 
+
+  def testNumberOfDays(self):
+    self.assertEqual(len(gtfs_data.database.CALENDAR_DAYS), 7)
+
 if __name__ == '__main__':
     unittest.main()
