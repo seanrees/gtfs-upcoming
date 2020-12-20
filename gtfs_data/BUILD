@@ -4,6 +4,9 @@ load("@pip_deps//:requirements.bzl", "requirement")
 py_library(
     name = "loader",
     srcs = ["loader.py"],
+    visibility = [
+        "//:__pkg__",
+    ],
 )
 
 py_test(

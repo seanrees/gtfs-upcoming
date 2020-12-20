@@ -3,6 +3,7 @@
 import httpd
 import nta
 import gtfs_data.database
+import gtfs_data.loader
 import transit
 
 import argparse
@@ -13,6 +14,7 @@ import faulthandler
 import functools
 import json
 import logging
+import os
 import sys
 import time
 import urllib.request
@@ -125,6 +127,8 @@ def main(argv: List[str]) -> None:
   parser.add_argument('--port', help='Port to run webserver on', default=6824)
   parser.add_argument('--promport', help='Port to run Prometheus webserver on', default=None)
   parser.add_argument('--gtfs', help='GTFS definitions', default='google_transit_combined')
+  parser.add_argument('--loader_max_threads', help='Max load threads', default=os.cpu_count())
+  parser.add_argument('--loader_max_rows_per_chunk', help='Number of rows per threaded chunk', default=100000)
   args = parser.parse_args()
 
   logging.basicConfig(
@@ -142,6 +146,12 @@ def main(argv: List[str]) -> None:
   config = _read_config(args.config)
   if not config:
     exit(-1)
+
+  gtfs_data.loader.MaxThreads = int(args.loader_max_threads)
+  gtfs_data.loader.MaxRowsPerChunk = int(args.loader_max_rows_per_chunk)
+
+  logging.info('Configured loader with %d threads, %d rows per chunk',
+    gtfs_data.loader.MaxThreads, gtfs_data.loader.MaxRowsPerChunk)
 
   logging.info('Loading GTFS data sources from "%s"', args.gtfs)
   if config.interesting_stops:

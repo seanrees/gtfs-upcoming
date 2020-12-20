@@ -4,12 +4,39 @@ import csv
 import logging
 import io
 import os
+import queue
+import threading
 
 from typing import AbstractSet, Dict, List, MutableSet, Tuple
 
 # Some NTA data files have a single unprintable character upfront; this will cause
 # DictReader to include that character in the key for the first field.
 BROKEN_CHARACTER = '\ufeff'
+
+# Module-level tunables
+MaxThreads = 4
+MaxRowsPerChunk = 100000
+
+class BufferedExecutor:
+  """Creates and wraps a ProcessPoolExecutor to limit the number of futures in flight.
+
+  Each future acquires a semaphore on creation, and releases it upon completion. The
+  semaphore is set to max_workers+1 to allow for queued work to be ready for the next
+  worker.
+
+  The use in this module is intended to provide some back-pressure on reading the
+  input file; if we create futures much faster than we can process them, we will
+  potentially overwhelm memory on a small system with lots of StringIOs.
+  """
+  def __init__(self, max_workers:int=0):
+    self._pool = concurrent.futures.ProcessPoolExecutor(max_workers=max_workers)
+    self._sem = threading.Semaphore(value=max_workers*2-1)
+
+  def submit(self, *args, **kwargs):
+    self._sem.acquire()
+    f = self._pool.submit(*args, **kwargs)
+    f.add_done_callback(lambda unused: self._sem.release())
+    return f
 
 
 def loadChunk(io: io.StringIO, keep: Dict[str, AbstractSet[str]]=None) -> Tuple[List[Dict[str,str]], int]:
@@ -58,16 +85,11 @@ def Load(filename: str, keep: Dict[str, AbstractSet[str]]=None) -> List[Dict[str
   Raises:
     FileNotFoundError if filename isn't present.
   """
-  # Tunables: the workers are very CPU-bound.
-  workers = os.cpu_count()
-  linesPerChunk = 100000
-
-  pool = concurrent.futures.ProcessPoolExecutor(max_workers=workers)
+  keep = keep or {}
+  pool = BufferedExecutor(max_workers=MaxThreads)
   futures = []
 
-  keep = keep or {}
-
-  # We will read linesPerChunk into a StringIO, then pass it to a worker
+  # We will read MaxRowsPerChunk into a StringIO, then pass it to a worker
   # to parse the CSV.
   with open(filename) as f:
     # If a broken character is present, read it out of the buffer. If not
@@ -82,7 +104,7 @@ def Load(filename: str, keep: Dict[str, AbstractSet[str]]=None) -> List[Dict[str
     accum = io.StringIO()
 
     for line in f:
-      if count % linesPerChunk == 0:
+      if count % MaxRowsPerChunk == 0:
         if accum.tell() > 0:
           accum.seek(0)
           futures.append(pool.submit(loadChunk, accum, keep))
@@ -99,7 +121,6 @@ def Load(filename: str, keep: Dict[str, AbstractSet[str]]=None) -> List[Dict[str
       accum.seek(0)
       futures.append(pool.submit(loadChunk, accum, keep))
 
-  # Collect future results.
   ret = []
   discard = 0
   for ft in futures:
