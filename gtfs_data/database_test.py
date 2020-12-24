@@ -62,7 +62,7 @@ class TestDatabase(unittest.TestCase):
 
     self.assertEqual(len(self.database._trip_db.keys()), 2)
 
-    for trip_id, t in self.database._trip_db.items():
+    for unused, t in self.database._trip_db.items():
       self.assertIn(t.trip_id, trips.keys())
       data = trips[t.trip_id]
 
@@ -76,8 +76,7 @@ class TestDatabase(unittest.TestCase):
   def testLoadAll(self):
     database = gtfs_data.database.Database(GTFS_DATA, [])
     database.Load()
-    self.assertEqual(database._trip_db.keys(), set(['1167', '1168', '1169']))
-
+    self.assertEqual(database._trip_db.keys(), set(['1167', '1168', '1169', 'ONIGHT']))
 
   def testGetScheduledFor(self):
     database = gtfs_data.database.Database(GTFS_DATA, [])
@@ -104,6 +103,45 @@ class TestDatabase(unittest.TestCase):
     self.assertEqual(len(resp), 1)
     self.assertEqual(resp[0].trip_id, '1168')
 
+  def testGetScheduledForOvernightRoutes(self):
+    """Test schedule generation for routes that span days"""
+    database = gtfs_data.database.Database(GTFS_DATA, [])
+    database.Load()
+
+    stop_id = 'ONIGHT-STOP2'
+
+    start = datetime.datetime(2020, 11, 19, 23, 00, 00)
+    stop = datetime.datetime(2020, 11, 20, 2, 00, 00)
+    resp = database.GetScheduledFor(stop_id, start, stop)
+    self.assertEqual(len(resp), 1)
+    self.assertEqual(resp[0].trip_id, 'ONIGHT')
+
+    start = datetime.datetime(2020, 11, 20, 0, 00, 00)
+    stop = datetime.datetime(2020, 11, 20, 2, 00, 00)
+    resp = database.GetScheduledFor(stop_id, start, stop)
+    self.assertEqual(len(resp), 1)
+    self.assertEqual(resp[0].trip_id, 'ONIGHT')
+
+    start = datetime.datetime(2020, 11, 18, 23, 00, 00)
+    stop = datetime.datetime(2020, 11, 20, 2, 00, 00)
+    resp = database.GetScheduledFor(stop_id, start, stop)
+    self.assertEqual(len(resp), 2)
+    self.assertEqual(resp[0].trip_id, 'ONIGHT')
+    self.assertEqual(resp[0].trip_id, 'ONIGHT')
+
+  def testGetScheduledForInvalids(self):
+    self.database.Load()
+
+    start = datetime.datetime(2020, 11, 20, 0, 00, 00)
+    stop = datetime.datetime(2020, 11, 20, 2, 00, 00)
+
+    # Invalid stop.
+    resp = self.database.GetScheduledFor("foo", start, stop)
+    self.assertEqual(len(resp), 0)
+
+    # Invalid times.
+    self.assertRaises(ValueError, self.database.GetScheduledFor,
+      INTERESTING_STOPS[0], stop, start)
 
   def testGetScheduledForExceptions(self):
     self.database.Load()
@@ -122,6 +160,31 @@ class TestDatabase(unittest.TestCase):
     resp = self.database.GetScheduledFor(stop_id, start, stop)
     self.assertEqual(len(resp), 2)
 
+  def testIsValidServiceDay(self):
+    database = gtfs_data.database.Database(GTFS_DATA, [])
+    database.Load()
+
+    # The exceptions only apply to trips 1167 and 1169. Trip 1168 has no exceptions
+    # but we should check to make sure it still behaves normally.
+    removed_service_date = datetime.date(2020, 11, 26)
+    self.assertFalse(database._IsValidServiceDay(removed_service_date, '1167'))
+    self.assertFalse(database._IsValidServiceDay(removed_service_date, '1169'))
+    self.assertTrue(database._IsValidServiceDay(removed_service_date, '1168'))
+
+    added_service_date = datetime.date(2020, 11, 27)
+    self.assertTrue(database._IsValidServiceDay(added_service_date, '1167'))
+    self.assertTrue(database._IsValidServiceDay(added_service_date, '1169'))
+    self.assertTrue(database._IsValidServiceDay(added_service_date, '1168'))
+
+    normal_service_date  = datetime.date(2020, 11, 19)
+    self.assertTrue(database._IsValidServiceDay(normal_service_date, '1167'))
+    self.assertTrue(database._IsValidServiceDay(normal_service_date, '1169'))
+    self.assertTrue(database._IsValidServiceDay(normal_service_date, '1168'))
+
+    normal_no_service_date = datetime.date(2020, 11, 28)
+    self.assertFalse(database._IsValidServiceDay(normal_no_service_date, '1167'))
+    self.assertFalse(database._IsValidServiceDay(normal_no_service_date, '1169'))
+    self.assertFalse(database._IsValidServiceDay(normal_no_service_date, '1168'))
 
   def testNumberOfDays(self):
     self.assertEqual(len(gtfs_data.database.CALENDAR_DAYS), 7)

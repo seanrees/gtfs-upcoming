@@ -1,5 +1,6 @@
 import gtfs_data.loader
 
+import collections
 import datetime
 import logging
 import os
@@ -102,8 +103,24 @@ class Database:
     TRIPDB_REQUESTS.labels(ret is not None).inc()
     return ret
 
+  def _IsValidServiceDay(self, dt: datetime.date, trip_id: str) -> bool:
+    trip = self.GetTrip(trip_id)
+    day = CALENDAR_DAYS[dt.weekday()]
+
+    trip = self.GetTrip(trip_id)
+    service = self._calendar_db.get(trip.service_id, None)
+    if not service:
+      logging.error('service "%s" not found in database', trip.service_id)
+      return False
+
+    exc = self._exceptions_db.get(trip.service_id, {}).get(dt)
+    if service.get(day) == CALENDAR_SERVICE_NOT_AVAILABLE:
+      return exc == CALENDAR_EXCEPTION_SERVICE_ADDED
+
+    return exc != CALENDAR_EXCEPTION_SERVICE_REMOVED
+
   def GetScheduledFor(self, stop_id: str, start: datetime.datetime, end: datetime.datetime):
-    """Returns the trips that are scheduled to stop at stop_id within <<mins>> of <<after>>
+    """Returns the trips that are scheduled to stop at stop_id between start and end.
 
     Args:
       stop_id: stop id to look trips up for
@@ -113,7 +130,6 @@ class Database:
     Return:
       List[Trip]
     """
-    day = CALENDAR_DAYS[start.weekday()]
     ret : List[Trip] = []
 
     stops = self._stops_db.get(stop_id, None)
@@ -121,29 +137,48 @@ class Database:
       logging.error('stop "%s" not found in database', stop_id)
       return ret
 
+    if end < start:
+      raise ValueError('start must come before end')
+
+    one_day = datetime.timedelta(days=1)
+    start_service_date = start.date()-one_day
+    end_service_date = end.date()
+
+    possibility = collections.namedtuple('possibility', ['service_date', 'arrival_time'])
+
     for s in stops:
       trip_id = s['trip_id']
       arrival_time_str = s['arrival_time']
 
-      trip = self.GetTrip(trip_id)
-      service = self._calendar_db.get(trip.service_id, None)
-      if not service:
-        logging.error('service "%s" not found in database', trip.service_id)
+      try:
+        # GTFS's data format allows for hours >24 to indicate times the
+        # next day. E.g; 25:00 = 0100+1; this is useful if a service starts
+        # on one day and carries through to the next.
+        hour, minute, second = [int(x) for x in arrival_time_str.split(':')]
+        delta = datetime.timedelta(days=0)
+
+        if hour > 24:
+          delta = one_day
+          hour -= 24
+
+        a = datetime.time(hour=hour, minute=minute, second=second)
+
+        possibles : List[possibility] = []
+        service_date = start_service_date
+        while service_date <= end_service_date:
+          arrival_time = datetime.datetime.combine(service_date, a)+delta
+          possibles.append(possibility(service_date, arrival_time))
+
+          service_date += one_day
+      except ValueError:
+        logging.exception('invalid format for arrival_time_str "%s"',
+          arrival_time_str)
         continue
 
-      exc = self._exceptions_db.get(trip.service_id, {}).get(start.date())
-      if service.get(day) == CALENDAR_SERVICE_NOT_AVAILABLE:
-        if exc != CALENDAR_EXCEPTION_SERVICE_ADDED:
-          continue
-
-      if exc == CALENDAR_EXCEPTION_SERVICE_REMOVED:
-        continue
-
-      a = datetime.datetime.strptime(arrival_time_str, '%H:%M:%S')
-      arrival = datetime.datetime.combine(start.date(), a.time())
-
-      if arrival >= start and arrival <= end:
-        ret.append(trip)
+      for p in possibles:
+        valid_day = self._IsValidServiceDay(p.service_date, trip_id)
+        if valid_day and p.arrival_time >= start and p.arrival_time <= end:
+          ret.append(self.GetTrip(trip_id))
 
     SCHEDULE_RESPONSE.observe(len(ret))
 
