@@ -81,8 +81,6 @@ class TransitHandler:
 
   def HandleScheduled(self, req: httpd.RequestHandler) -> None:
     stops = req.params.get('stop', self._stops)
-    now = datetime.datetime.now()
-
     data = self._transit.GetScheduled(stops)
 
     req.SendHeaders(200, 'application/json')
@@ -93,8 +91,6 @@ class TransitHandler:
 
   def HandleLive(self, req: httpd.RequestHandler) -> None:
     stops = req.params.get('stop', self._stops)
-    now = datetime.datetime.now()
-
     data = self._transit.GetLive(stops)
 
     req.SendHeaders(200, 'application/json')
