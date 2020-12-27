@@ -21,7 +21,7 @@ class BufferedExecutor:
   """Creates and wraps a ProcessPoolExecutor to limit the number of futures in flight.
 
   Each future acquires a semaphore on creation, and releases it upon completion. The
-  semaphore is set to max_workers+1 to allow for queued work to be ready for the next
+  semaphore is set to max_workers*2-1 to allow for queued work to be ready for the next
   worker.
 
   The use in this module is intended to provide some back-pressure on reading the
