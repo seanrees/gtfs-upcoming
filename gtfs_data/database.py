@@ -157,7 +157,7 @@ class Database:
         hour, minute, second = [int(x) for x in arrival_time_str.split(':')]
         delta = datetime.timedelta(days=0)
 
-        if hour > 24:
+        if hour >= 24:
           delta = one_day
           hour -= 24
 
