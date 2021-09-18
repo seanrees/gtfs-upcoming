@@ -1,3 +1,5 @@
+![build and tests](https://github.com/seanrees/gtfs-upcoming/actions/workflows/build.yml/badge.svg)
+
 # gtfs-upcoming
 
 ## What
