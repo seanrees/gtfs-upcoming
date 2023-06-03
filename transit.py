@@ -1,6 +1,5 @@
 import gtfs_data.database
 
-import aapipfix
 import datetime
 import logging
 from typing import Any, Callable, Dict, List, NamedTuple

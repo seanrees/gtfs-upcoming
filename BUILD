@@ -34,7 +34,6 @@ pkg_tar(
     package_dir = "/etc/default",
     srcs = ["debian/gtfs-upcoming"],
     mode = "0644",
-    strip_prefix = "debian/"
 )
 
 pkg_tar(
@@ -42,7 +41,6 @@ pkg_tar(
     package_dir = "/lib/systemd/system",
     srcs = ["debian/gtfs-upcoming.service"],
     mode = "0644",
-    strip_prefix = "debian/"
 )
 
 
@@ -59,7 +57,6 @@ pkg_tar(
     package_dir = "/etc/cron.d",
     srcs = ["debian/gtfs-upcoming-update-database"],
     mode = "0755",
-    strip_prefix = "debian/"
 )
 
 pkg_tar(
@@ -91,7 +88,7 @@ pkg_deb(
     description_file = "debian/description",
     maintainer = "Sean Rees <sean at erifax.org>",
     package = "gtfs-upcoming",
-    version = "0.0.2",
+    version = "0.0.3",
 )
 
 
@@ -112,15 +109,9 @@ py_library(
 )
 
 py_library(
-    name = "aapipfix",
-    srcs = ["aapipfix.py"]
-)
-
-py_library(
     name = "transit",
     srcs = ["transit.py"],
     deps = [
-        ":aapipfix",
         "//gtfs_data:database",
         requirement("gtfs-realtime-bindings"),
         requirement("prometheus_client"),
@@ -132,7 +123,6 @@ py_test(
     name = "transit_test",
     srcs = ["transit_test.py"],
     deps = [
-        ":aapipfix",
         ":transit",
         "//gtfs_data:database",
         requirement("protobuf"),
