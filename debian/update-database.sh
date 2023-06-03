@@ -4,7 +4,7 @@
 # changed upstream.
 #
 
-url=https://www.transportforireland.ie/transitData/google_transit_combined.zip
+url=https://www.transportforireland.ie/transitData/Data/GTFS_Realtime.zip
 cachedir=/var/cache/gtfs
 
 # Create the directory if we need it.

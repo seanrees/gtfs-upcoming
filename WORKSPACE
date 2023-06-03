@@ -3,30 +3,33 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 # Python rules.
 http_archive(
     name = "rules_python",
-    url = "https://github.com/bazelbuild/rules_python/releases/download/0.0.2/rules_python-0.0.2.tar.gz",
-    strip_prefix = "rules_python-0.0.2",
-    sha256 = "b5668cde8bb6e3515057ef465a35ad712214962f0b3a314e551204266c7be90c",
+    sha256 = "a868059c8c6dd6ad45a205cca04084c652cfe1852e6df2d5aca036f6e5438380",
+    strip_prefix = "rules_python-0.14.0",
+    url = "https://github.com/bazelbuild/rules_python/archive/refs/tags/0.14.0.tar.gz",
 )
 
-load("@rules_python//python:pip.bzl", "pip_repositories")
-pip_repositories()
+load("@rules_python//python:pip.bzl", "pip_parse")
 
-load("@rules_python//python:pip.bzl", "pip3_import")
-pip3_import(   # or pip3_import
-   name = "pip_deps",
-   requirements = "//:requirements.txt",
+pip_parse(
+    name = "pip_deps",
+    requirements_lock = "//:requirements.txt",
+    isolated=False
 )
-load("@pip_deps//:requirements.bzl", "pip_install")
-pip_install()
+
+load("@pip_deps//:requirements.bzl", "install_deps")
+
+install_deps()
+
 
 # Packaging rules.
+#load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "rules_pkg",
     urls = [
-        "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.6-1/rules_pkg-0.2.6.tar.gz",
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.2.6/rules_pkg-0.2.6.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.8.0/rules_pkg-0.8.0.tar.gz",
+        "https://github.com/bazelbuild/rules_pkg/releases/download/0.8.0/rules_pkg-0.8.0.tar.gz",
     ],
-    sha256 = "aeca78988341a2ee1ba097641056d168320ecc51372ef7ff8e64b139516a4937",
+    sha256 = "eea0f59c28a9241156a47d7a8e32db9122f3d50b505fae0f33de6ce4d9b61834",
 )
 load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
 rules_pkg_dependencies()

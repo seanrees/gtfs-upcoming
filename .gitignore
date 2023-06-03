@@ -5,3 +5,7 @@
 # Ignore some Python caches
 /.mypy_cache
 /__pycache__
+
+/google_transit_combined
+/venv
+/config.ini

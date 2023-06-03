@@ -4,7 +4,7 @@ import prometheus_client    # type: ignore[import]
 
 
 TEST_URL = "https://api.nationaltransport.ie/gtfsrtest/"
-PROD_URL = "https://gtfsr.transportforireland.ie/v1"
+PROD_URL = "https://api.nationaltransport.ie/gtfsr/v2/gtfsr"
 
 # Metrics
 LATENCY = prometheus_client.Summary(
