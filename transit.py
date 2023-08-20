@@ -122,6 +122,8 @@ class Transit:
         for s in t.stop_times:
           if s['stop_id'] == stop_id:
             due = s['arrival_time']
+            if due.startswith('24:'):
+              due = due.replace('24:', '00:')
             break
 
         ret.append(Upcoming.FromTrip(t, stop_id, 'SCHEDULE', due, now().time()))
@@ -165,6 +167,8 @@ class Transit:
         if st['stop_id'] in interesting_stops:
           stop_id = st['stop_id']
           sequence = int(st['stop_sequence'])
+          if st['arrival_time'].startswith('24:'):
+            st['arrival_time'] = st['arrival_time'].replace('24:', '00:')
           arrival_time = parseTime(st['arrival_time'])
           break
 
