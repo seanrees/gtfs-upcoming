@@ -18,6 +18,15 @@
             ],
             "justMyCode": true,
             
+        },
+        {
+            "name": "Run tests",
+            "type": "python",
+            "request": "launch",
+            "stopOnEntry": false,
+            "program": "${workspaceFolder}/transit_test.py",
+            "justMyCode": true,
+            
         }
     ]
 }
