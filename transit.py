@@ -56,13 +56,16 @@ def now() -> datetime.datetime:
 
 def parseTime(t: str) -> datetime.datetime:
   """Converts HH:MM:SS to a datetime.datetime"""
-  return datetime.datetime.strptime(t, '%H:%M:%S')
+  base_date = now().date()
+  if t.startswith('24:'):
+    t = t.replace('24:', '00:')
+    base_date += datetime.timedelta(days=1)
+  return datetime.datetime.combine(base_date, datetime.datetime.strptime(t, '%H:%M:%S').time())
 
 
-def delta_seconds(now: datetime.time, then: datetime.time) -> float:
+def delta_seconds(now: datetime.datetime, then: datetime.datetime) -> float:
   """Returns time in seconds between two datetime.times"""
-  td = lambda t : datetime.timedelta(hours=t.hour, minutes=t.minute, seconds=t.second)
-  return (td(now) - td(then)).total_seconds()
+  return (now - then).total_seconds()
 
 
 class Upcoming(NamedTuple):
@@ -82,7 +85,7 @@ class Upcoming(NamedTuple):
     return self._asdict()
 
   @classmethod
-  def FromTrip(cls, trip: gtfs_data.database.Trip, stop_id: str, source: str, due: str, currentTime: datetime.time):
+  def FromTrip(cls, trip: gtfs_data.database.Trip, stop_id: str, source: str, due: str, currentDateTime: datetime.datetime):
     return cls(
       trip_id=trip.trip_id,
       route=trip.route['route_short_name'],
@@ -91,7 +94,7 @@ class Upcoming(NamedTuple):
       direction=trip.direction_id,
       stop_id=stop_id,
       dueTime=due,
-      dueInSeconds=delta_seconds(parseTime(due).time(), currentTime),
+      dueInSeconds=delta_seconds(parseTime(due), currentDateTime),
       source=source)
 
 
@@ -124,7 +127,7 @@ class Transit:
             due = s['arrival_time']
             break
 
-        ret.append(Upcoming.FromTrip(t, stop_id, 'SCHEDULE', due, now().time()))
+        ret.append(Upcoming.FromTrip(t, stop_id, 'SCHEDULE', due, now()))
 
     SCHEDULED_RETURNED.observe(len(ret))
 
@@ -176,13 +179,15 @@ class Transit:
               secs = int(stu.arrival.delay)
               updated_arrival_time += datetime.timedelta(seconds=secs)
             if stu.arrival.HasField('time'):
+              # parses POSIX timestamp into datetime
+              # (https://developers.google.com/transit/gtfs-realtime/reference#message-feedentity)
               updated_arrival_time = datetime.datetime.fromtimestamp(
                 stu.arrival.time)
         else:
             # We don't need to read anything past our stop.
             break
 
-      if current.time() > updated_arrival_time.time():
+      if current > updated_arrival_time:
         continue
 
       if updated_arrival_time < arrival_time:
@@ -193,7 +198,7 @@ class Transit:
         delayed += 1
 
       due = updated_arrival_time.strftime("%H:%M:%S")
-      ret.append(Upcoming.FromTrip(trip_from_db, stop_id, 'LIVE', due, current.time()))
+      ret.append(Upcoming.FromTrip(trip_from_db, stop_id, 'LIVE', due, current))
 
     MATCHED_TRIPS.labels('ontime').observe(ontime)
     MATCHED_TRIPS.labels('early').observe(early)

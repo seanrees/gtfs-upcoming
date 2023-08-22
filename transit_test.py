@@ -33,10 +33,15 @@ class TestTransit(unittest.TestCase):
     """Simple wrapper to allow a test to specify which file it wants."""
     return fetch(self.fetch_input)
 
+  def testParseTime(self):
+    now = transit.now()
+    self.assertEqual(transit.parseTime("24:20:00").date() - now.date(), datetime.timedelta(days=1))
+
   def testDelta_Seconds(self):
-    t1 = datetime.time(10, 40, 00)
-    t2 = datetime.time(10, 45, 30)
-    t3 = datetime.time(15, 40, 00)
+    now = datetime.datetime(2023, 8, 21)
+    t1 = datetime.datetime.combine(now, datetime.time(10, 40, 00))
+    t2 = datetime.datetime.combine(now, datetime.time(10, 45, 30))
+    t3 = datetime.datetime.combine(now, datetime.time(15, 40, 00))
 
     self.assertEqual(transit.delta_seconds(t1, t2), -330)
     self.assertEqual(transit.delta_seconds(t2, t1), 330)

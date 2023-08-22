@@ -84,6 +84,21 @@ then building/running is trivial:
 
 The BUILD file also defines a Debian (.deb) build target.
 
+## Docker
+A Dockerfile is provided, which installs the latest master code from github, and the 
+GTFS-R zip file from the link above. Build the docker file as follows:
+
+``` bash
+docker build . --tag tfi_gtfs
+```
+You run it with a `config.ini` from your project directory as follows:
+
+``` bash
+docker run -v ./config.ini:/app/config.ini:ro -p 6824:6824 tfi_gtfs --config=config.ini --env=prod --port=6824 --gtfs=GTFS_Realtime
+```
+
+You should now be able to access the API on your local machine.
+
 ## Data and Configuration
 
 ### GTFS Data
