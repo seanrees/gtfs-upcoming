@@ -1,7 +1,7 @@
 ARG BUILD_FROM=alpine
 FROM $BUILD_FROM
 
-ARG GTFS_UPCOMING_ZIP_URL=https://github.com/seanblanchfield/gtfs-upcoming/archive/refs/heads/main.zip
+ARG GTFS_UPCOMING_ZIP_URL=https://github.com/seanrees/gtfs-upcoming/archive/refs/heads/main.zip
 ARG TFI_GTFS_ZIP=https://www.transportforireland.ie/transitData/Data/GTFS_Realtime.zip
 
 # Install requirements for add-on
