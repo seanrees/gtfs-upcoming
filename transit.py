@@ -85,7 +85,7 @@ class Upcoming(NamedTuple):
     return self._asdict()
 
   @classmethod
-  def FromTrip(cls, trip: gtfs_data.database.Trip, stop_id: str, source: str, due: str, currentDateTime: datetime.datetime):
+  def FromTrip(cls, trip: gtfs_data.database.Trip, stop_id: str, source: str, due: datetime.datetime, currentDateTime: datetime.datetime):
     return cls(
       trip_id=trip.trip_id,
       route=trip.route['route_short_name'],
@@ -93,8 +93,8 @@ class Upcoming(NamedTuple):
       headsign=trip.trip_headsign,
       direction=trip.direction_id,
       stop_id=stop_id,
-      dueTime=due,
-      dueInSeconds=delta_seconds(parseTime(due), currentDateTime),
+      dueTime=due.time().strftime('%H:%M:%S'),
+      dueInSeconds=delta_seconds(due, currentDateTime),
       source=source)
 
 
@@ -124,7 +124,7 @@ class Transit:
 
         for s in t.stop_times:
           if s['stop_id'] == stop_id:
-            due = s['arrival_time']
+            due = parseTime(s['arrival_time'])
             break
 
         ret.append(Upcoming.FromTrip(t, stop_id, 'SCHEDULE', due, now()))
@@ -197,8 +197,7 @@ class Transit:
       else:
         delayed += 1
 
-      due = updated_arrival_time.strftime("%H:%M:%S")
-      ret.append(Upcoming.FromTrip(trip_from_db, stop_id, 'LIVE', due, current))
+      ret.append(Upcoming.FromTrip(trip_from_db, stop_id, 'LIVE', updated_arrival_time, current))
 
     MATCHED_TRIPS.labels('ontime').observe(ontime)
     MATCHED_TRIPS.labels('early').observe(early)
