@@ -186,6 +186,21 @@ class TestDatabase(unittest.TestCase):
     self.assertFalse(database._IsValidServiceDay(normal_no_service_date, '1169'))
     self.assertFalse(database._IsValidServiceDay(normal_no_service_date, '1168'))
 
+    # 1167 and 1169 are Thursday only, 1168 is M-F -- so lets use 1168
+    # Valid dates for the schedule are 2020-11-04 to 2021-02-25
+    before_start_date = datetime.date(2020, 11, 3)
+    self.assertFalse(database._IsValidServiceDay(before_start_date, '1168'))
+
+    start_date = datetime.date(2020, 11, 4)
+    self.assertTrue(database._IsValidServiceDay(start_date, '1168'))
+
+    end_date = datetime.date(2021, 2, 25)
+    self.assertTrue(database._IsValidServiceDay(end_date, '1168'))
+
+    after_end_date = datetime.date(2020, 2, 26)
+    self.assertFalse(database._IsValidServiceDay(after_end_date, '1168'))
+
+
   def testNumberOfDays(self):
     self.assertEqual(len(gtfs_data.database.CALENDAR_DAYS), 7)
 

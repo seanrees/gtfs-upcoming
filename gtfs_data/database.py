@@ -113,6 +113,11 @@ class Database:
       logging.error('service "%s" not found in database', trip.service_id)
       return False
 
+    start = service['start_date']
+    end = service['end_date']
+    if dt < start or dt > end:
+      return False
+    
     exc = self._exceptions_db.get(trip.service_id, {}).get(dt)
     if service.get(day) == CALENDAR_SERVICE_NOT_AVAILABLE:
       return exc == CALENDAR_EXCEPTION_SERVICE_ADDED
@@ -231,8 +236,15 @@ class Database:
 
   def _LoadCalendar(self) -> Dict[str, Dict[str, str]]:
     """Loads calendar.txt."""
-    # TODO: make start_date and end_date easy to use.
-    return self._Collect(self._Load('calendar.txt'), 'service_id')
+    dates = self._Collect(self._Load('calendar.txt'), 'service_id')
+
+    for _, data in dates.items():
+      start = datetime.datetime.strptime(data['start_date'], '%Y%m%d').date()
+      end = datetime.datetime.strptime(data['end_date'], '%Y%m%d').date()
+      data['start_date'] = start
+      data['end_date'] = end
+    
+    return dates
 
   def _LoadExceptions(self) -> Dict[str, Dict[datetime.date, str]]:
     """Loads calendar_dates.txt and preparses dates for easy lookup."""
