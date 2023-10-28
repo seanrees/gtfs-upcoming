@@ -83,7 +83,7 @@ class TestTransit(unittest.TestCase):
 
   def testGetScheduled(self):
     with unittest.mock.patch('transit.now') as mock_now:
-        mock_now.return_value = datetime.datetime(2020, 8, 20, 7, 00, 0)
+        mock_now.return_value = datetime.datetime(2020, 11, 19, 7, 00, 0)
 
         resp = self.transit.GetScheduled(INTERESTING_STOPS)
         self.assertEqual(2, len(resp))
@@ -97,7 +97,7 @@ class TestTransit(unittest.TestCase):
   def testGetScheduledIgnorePassedStop(self):
     """Same as testGetLive except the mock time is 1 hour later."""
     with unittest.mock.patch('transit.now') as mock_now:
-        mock_now.return_value = datetime.datetime(2020, 8, 20, 8, 00, 0)
+        mock_now.return_value = datetime.datetime(2020, 11, 19, 8, 00, 0)
 
         resp = self.transit.GetScheduled(INTERESTING_STOPS)
         self.assertEqual(1, len(resp))
@@ -111,7 +111,7 @@ class TestTransit(unittest.TestCase):
     self.fetch_input = TEST_FEEDMESSAGE_ONE
 
     with unittest.mock.patch('transit.now') as mock_now:
-        mock_now.return_value = datetime.datetime(2020, 8, 20, 7, 00, 0)
+        mock_now.return_value = datetime.datetime(2020, 11, 19, 7, 00, 0)
 
         resp = self.transit.GetUpcoming(INTERESTING_STOPS)
         self.assertEqual(2, len(resp))
