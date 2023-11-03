@@ -7,7 +7,7 @@ py_binary(
     srcs = ["main.py"],
     deps = [
         ":httpd",
-        ":nta",
+        ":fetch",
         ":transit",
         "//gtfs_data:database",
         requirement("prometheus_client")
@@ -55,7 +55,7 @@ pkg_tar(
 pkg_tar(
     name = "deb-update-database-cron",
     package_dir = "/etc/cron.d",
-    srcs = ["debian/gtfs-upcoming-update-database"],
+    srcs = ["debian/gtfs-upcoming-update-database.sample"],
     mode = "0755",
 )
 
@@ -88,7 +88,7 @@ pkg_deb(
     description_file = "debian/description",
     maintainer = "Sean Rees <sean at erifax.org>",
     package = "gtfs-upcoming",
-    version = "0.0.3",
+    version = "1.0.0",
 )
 
 
@@ -101,8 +101,8 @@ py_library(
 )
 
 py_library(
-    name = "nta",
-    srcs = ["nta.py"],
+    name = "fetch",
+    srcs = ["fetch.py"],
     deps = [
         requirement("prometheus_client")
     ],
