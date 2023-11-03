@@ -13,7 +13,8 @@ served via HTTP in JSON format at /upcoming.json.
 trip. If a stop is near an origin of a service, live data may not yet be
 available.
 
-This was developed against the Irish [NTA's GTFS-R feed](https://developer.nationaltransport.ie/api-details#api=gtfsr).
+This was developed against the Irish [NTA's GTFS-R feed](https://developer.nationaltransport.ie/api-details#api=gtfsr)
+and the [VicRoads Data Exchange GTFS-R feed](https://data-exchange.vicroads.vic.gov.au/api-details#api=vehicle-position-trip-update-opendata&operation=metro-bus-trip-updates).
 
 This is part of a personal project for an live upcoming transit display.
 The display previously relied on the now-deprecated SmartDublin RTPI service.
@@ -21,7 +22,7 @@ The display previously relied on the now-deprecated SmartDublin RTPI service.
 ## Usage
 
 ```sh
-% main.py --config=config.ini --env=prod --port=6824 --promport=8000
+% main.py --config=config.ini --port=6824 --promport=8000 --provider=nta --env=prod
 ...
 2020/08/23 08:58:09    INFO Starting HTTP server on port 6824
 ```
@@ -79,7 +80,7 @@ This project is built with [Bazel](http://bazel.build). If you have bazel,
 then building/running is trivial:
 
 ```sh
-% bazel run :main -- [--config CONFIG] [--env {prod,test}] [--gtfs GTFS] [--port PORT]
+% bazel run :main -- [--config CONFIG] [--gtfs GTFS] [--port PORT] [--provider {nta,vicroads}] [--env {prod,test,metrotrain,tram}] 
 ```
 
 The BUILD file also defines a Debian (.deb) build target.
@@ -108,21 +109,19 @@ stop times, and agencies) in order to interpret the realtime data
 correctly. This is available from your GTFS-R provider.
 
 For the Irish NTA, that is [here](https://www.transportforireland.ie/transitData/google_transit_combined.zip).
+For VicRoads/PTV, that is [here](https://data.ptv.vic.gov.au/downloads/gtfs.zip).
 
 ### config.ini
 
 Server configuration is an INI file and has two sections:
 
-1. NTA section: API keys
+1. ApiKeys section: API keys
 1. Upcoming section: Interesting Stops
 
 #### API Keys
 
-This is specific to the Irish NTA. If you are using another provider, you're
-going to need to make changes to the code and this section is irrelevant.
-
 ```
-[NTA]
+[ApiKeys]
   PrimaryApiKey =
   SecondaryApiKey =
 ```
