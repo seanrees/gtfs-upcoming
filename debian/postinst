@@ -3,4 +3,7 @@
 set -e
 
 umask 022
-/opt/gtfs-upcoming/bin/update-database.sh
+echo "gtfs-upcoming: you'll need to supply a GTFS static database in /var/cache/gtfs"
+echo "gtfs-upcoming: for the Irish NTA, try /opt/gtfs-upcoming/bin/update-database.sh"
+echo
+echo "gtfs-upcoming: you'll also want to regularly update it! see /etc/cron.d/gtfs-upcoming-update-database.sample"

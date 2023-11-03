@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
 import httpd
-import nta
+import fetch
 import gtfs_data.database
 import gtfs_data.loader
 import transit
+
 
 import argparse
 import collections
@@ -47,8 +48,14 @@ def _read_config(filename: str) -> Configuration:
     raise
 
   try:
-    pri = config['NTA']['PrimaryApiKey']
-    sec = config['NTA']['SecondaryApiKey']
+    # The NTA section was the original name. We keep it for compatibility.
+    if config.has_section('NTA'):
+      keys = config['NTA']
+    else:
+      keys = config['ApiKeys']
+
+    pri = keys['PrimaryApiKey']
+    sec = keys['SecondaryApiKey']
 
     stops : List[str] = []
     stop_ids = config.get('Upcoming', 'InterestingStopIds', fallback=None)
@@ -119,16 +126,17 @@ def main(argv: List[str]) -> None:
 
   parser = argparse.ArgumentParser(prog=argv[0])
   parser.add_argument('--config', help='Configuration file (INI file)', default='config.ini')
-  parser.add_argument('--env', help='Use Prod or Test endpoints', default='test', choices=['prod', 'test'])
+  parser.add_argument('--env', help='Use Prod or Test endpoints', default='test')
   parser.add_argument('--port', help='Port to run webserver on', default=6824)
   parser.add_argument('--promport', help='Port to run Prometheus webserver on', default=None)
   parser.add_argument('--gtfs', help='GTFS definitions', default='google_transit_combined')
   parser.add_argument('--loader_max_threads', help='Max load threads', default=os.cpu_count())
   parser.add_argument('--loader_max_rows_per_chunk', help='Number of rows per threaded chunk', default=100000)
+  parser.add_argument('--provider', help='One of nta (Ireland) or vicroads (Victoria Australia)', default='nta')
   args = parser.parse_args()
 
   logging.basicConfig(
-      format='%(asctime)s %(levelname)7s %(message)s',
+      format='%(asctime)s %(levelname)8s %(message)s',
       datefmt='%Y/%m/%d %H:%M:%S',
       level=logging.DEBUG)
 
@@ -156,19 +164,18 @@ def main(argv: List[str]) -> None:
   else:
     logging.info('Loading data for all stops.')
 
-  database = gtfs_data.database.Database(
-    args.gtfs, config.interesting_stops)
-  database.Load()
-  logging.info('Load complete.')
+  try:
+    database = gtfs_data.database.Database(
+      args.gtfs, config.interesting_stops)
+    database.Load()
+    logging.info('Load complete.')
+  except FileNotFoundError as fnfex:
+    logging.error(fnfex)
+    logging.fatal("Incomplete or missing GTFS database in %s. Run update-database.sh", args.gtfs)
+    exit(-2)
 
-  api_url = nta.TEST_URL
-  if args.env == 'prod':
-    api_url = nta.PROD_URL
-  API_ENV.info({'name': args.env, 'url': api_url})
-  logging.info('API endpoint = %s (%s)', args.env, api_url)
-
-  fetch_fn = functools.partial(nta.Fetch, config.api_key_primary, api_url)
-  t = transit.Transit(fetch_fn, database)
+  fetcher = fetch.MakeFetcher(args.provider, args.env, config.api_key_primary)
+  t = transit.Transit(fetcher.Fetch, database)
 
   port = int(args.port)
   logging.info("Starting HTTP server on port %d", port)
