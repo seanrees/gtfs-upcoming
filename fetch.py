@@ -60,6 +60,7 @@ class IrelandNTA(Fetcher):
   
 
 class VicRoads(Fetcher):
+  METROBUS_URL = "https://data-exchange-api.vicroads.vic.gov.au/opendata/v1/gtfsr/metrobus-tripupdates"
   METROTRAIN_URL = "https://data-exchange-api.vicroads.vic.gov.au/opendata/v1/gtfsr/metrotrain-tripupdates"
   YARRATRAMS_URL = "https://data-exchange-api.vicroads.vic.gov.au/opendata/gtfsr/v1/tram/tripupdates"
 
@@ -85,7 +86,9 @@ def MakeFetcher(provider: str, env: str, api_key: str) -> Fetcher:
     logging.info("Irish NTA, env=%s, url=%s", env, url)
     return IrelandNTA(api_key, url)
   elif provider == "vicroads":
-    if env == 'metrotrain':
+    if env == 'metrobus':
+      url = VicRoads.METROBUS_URL
+    elif env == 'metrotrain':
       url = VicRoads.METROTRAIN_URL
     elif env == 'tram':
       url = VicRoads.YARRATRAMS_URL
