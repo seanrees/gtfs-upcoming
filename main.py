@@ -147,6 +147,11 @@ def main(argv: List[str]) -> None:
   if args.promport:
     prometheus_client.start_http_server(int(args.promport))
 
+  API_ENV.info({
+    'provider': args.provider,
+    'env': args.env
+  })
+
   config = _read_config(args.config)
   if not config:
     exit(-1)

@@ -88,7 +88,7 @@ pkg_deb(
     description_file = "debian/description",
     maintainer = "Sean Rees <sean at erifax.org>",
     package = "gtfs-upcoming",
-    version = "1.0.0",
+    version = "1.0.1",
 )
 
 
