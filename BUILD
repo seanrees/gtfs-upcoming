@@ -127,6 +127,7 @@ py_library(
 
 py_test(
     name = "transit_test",
+    size = "small",
     srcs = ["transit_test.py"],
     data = [
         "testdata/gtfsv1-sample-onetrip.json",

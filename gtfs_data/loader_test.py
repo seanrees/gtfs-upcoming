@@ -1,5 +1,6 @@
 import gtfs_data.loader
 
+import multiprocessing
 import unittest
 
 TEST_FILE = 'gtfs_data/testdata/agency.txt'
@@ -38,4 +39,5 @@ class TestLoader(unittest.TestCase):
     self.assertIn('service_id', result[0].keys())
 
 if __name__ == '__main__':
+    multiprocessing.set_start_method("spawn")
     unittest.main()
