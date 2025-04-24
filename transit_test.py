@@ -1,4 +1,5 @@
 import gtfs_data.database
+import multiprocessing
 import transit
 
 from google.protobuf import json_format
@@ -124,4 +125,5 @@ class TestTransit(unittest.TestCase):
 
 
 if __name__ == '__main__':
+    multiprocessing.set_start_method("spawn")
     unittest.main()

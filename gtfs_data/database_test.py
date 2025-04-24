@@ -1,6 +1,7 @@
 import gtfs_data.database
 
 import datetime
+import multiprocessing
 import unittest
 
 TEST_FILE = 'gtfs_data/testdata/agency.txt'
@@ -205,4 +206,5 @@ class TestDatabase(unittest.TestCase):
     self.assertEqual(len(gtfs_data.database.CALENDAR_DAYS), 7)
 
 if __name__ == '__main__':
+    multiprocessing.set_start_method("spawn")
     unittest.main()

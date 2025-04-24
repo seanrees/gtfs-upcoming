@@ -11,6 +11,7 @@ py_library(
 
 py_test(
     name = "loader_test",
+    size = "small",
     srcs = ["loader_test.py"],
     data = [
         "testdata/agency.txt",
@@ -43,6 +44,7 @@ filegroup(
 
 py_test(
     name = "database_test",
+    size = "small",
     srcs = ["database_test.py"],
     data = [
         ":exported_testdata",
