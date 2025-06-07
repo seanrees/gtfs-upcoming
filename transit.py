@@ -5,6 +5,7 @@ import logging
 from typing import Any, Callable, Dict, List, NamedTuple
 
 from google.transit import gtfs_realtime_pb2    # type: ignore[import]
+from opentelemetry import trace
 import prometheus_client                        # type: ignore[import]
 
 # Metrics
@@ -43,6 +44,9 @@ SCHEDULED_TIME = prometheus_client.Summary(
 LIVE_TIME = prometheus_client.Summary(
   'gtfs_transit_getlive_run_seconds',
   'Time to run GetLive')
+
+
+tracer = trace.get_tracer("tracer.transit")
 
 
 def now() -> datetime.datetime:
@@ -110,6 +114,7 @@ class Transit:
     return ret
 
   @SCHEDULED_TIME.time()
+  @tracer.start_as_current_span("GetScheduled")
   def GetScheduled(self, interesting_stops: List[str]) -> List[Upcoming]:
     start = now()
     end = now() + datetime.timedelta(minutes=120)
@@ -134,6 +139,7 @@ class Transit:
     return sorted(ret, key=lambda x: x.dueInSeconds)
 
   @LIVE_TIME.time()
+  @tracer.start_as_current_span("GetLive")
   def GetLive(self, interesting_stops: List[str]) -> List[Upcoming]:
     resp = self.LoadFromAPI()
     ret = []
@@ -209,6 +215,7 @@ class Transit:
     return ret
 
   @UPCOMING_TIME.time()
+  @tracer.start_as_current_span("GetUpcoming")
   def GetUpcoming(self, interesting_stops: List[str]) -> List[Upcoming]:
     ret : List[Upcoming] = []
 

@@ -7,6 +7,7 @@ import os
 from typing import AbstractSet, Any, List, Dict, NamedTuple
 
 import prometheus_client    # type: ignore[import]
+from opentelemetry import trace
 
 
 # Metrics
@@ -55,6 +56,9 @@ CALENDAR_SERVICE_NOT_AVAILABLE = "0"
 
 CALENDAR_EXCEPTION_SERVICE_ADDED = "1"
 CALENDAR_EXCEPTION_SERVICE_REMOVED = "2"
+
+
+tracer = trace.get_tracer("tracer.gtfs_data.database")
 
 
 class Trip(NamedTuple):
@@ -124,6 +128,7 @@ class Database:
 
     return exc != CALENDAR_EXCEPTION_SERVICE_REMOVED
 
+  @tracer.start_as_current_span("GetScheduledFor")
   def GetScheduledFor(self, stop_id: str, start: datetime.datetime, end: datetime.datetime):
     """Returns the trips that are scheduled to stop at stop_id between start and end.
 

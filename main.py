@@ -139,7 +139,7 @@ def main(argv: List[str]) -> None:
   logging.basicConfig(
       format='%(asctime)s %(levelname)8s %(message)s',
       datefmt='%Y/%m/%d %H:%M:%S',
-      level=logging.DEBUG)
+      level=logging.INFO)
 
   logging.info('Starting up')
 
@@ -159,7 +159,7 @@ def main(argv: List[str]) -> None:
 
   gtfs_data.loader.MaxThreads = int(args.loader_max_threads)
   gtfs_data.loader.MaxRowsPerChunk = int(args.loader_max_rows_per_chunk)
-  multiprocessing.set_start_method("spawn")
+  #multiprocessing.set_start_method("spawn")
 
   logging.info('Configured loader with %d threads, %d rows per chunk',
     gtfs_data.loader.MaxThreads, gtfs_data.loader.MaxRowsPerChunk)

@@ -5,6 +5,7 @@ import socketserver
 
 from typing import Callable, Dict
 
+from opentelemetry import trace
 import prometheus_client    # type: ignore[import]
 
 
@@ -23,12 +24,14 @@ UNKNOWN_PATH_COUNT = prometheus_client.Counter(
   'gtfs_http_unknown_paths_total',
   'Requests to unknown paths in the internal webserver')
 
+tracer = trace.get_tracer("tracer.httpd")
 
 class RequestHandler(http.server.BaseHTTPRequestHandler):
   # Override StreamRequestHandler.timeout; applies to the
   # request socket.
   timeout = 5
 
+  @tracer.start_as_current_span("do_GET")
   def do_GET(self):
     pr = urllib.parse.urlparse(self.path)
     path = pr.path
@@ -42,6 +45,7 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
       self.Handle404()
       UNKNOWN_PATH_COUNT.inc()
 
+  @tracer.start_as_current_span("Handle404")
   def Handle404(self):
     self.SendHeaders(404, 'text/html')
 
