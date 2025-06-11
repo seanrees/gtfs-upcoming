@@ -1,17 +1,17 @@
-import gtfs_data.database
+import gtfs_upcoming.schedule
 
 import datetime
 import multiprocessing
 import unittest
 
-TEST_FILE = 'gtfs_data/testdata/agency.txt'
-GTFS_DATA = 'gtfs_data/testdata'
+TEST_FILE = 'testdata/schedule/agency.txt'
+GTFS_DATA = 'testdata/schedule'
 INTERESTING_STOPS = ['8220DB000490']
 
 
 class TestDatabase(unittest.TestCase):
   def setUp(self):
-    self.database = gtfs_data.database.Database(GTFS_DATA, INTERESTING_STOPS)
+    self.database = gtfs_upcoming.schedule.Database(GTFS_DATA, INTERESTING_STOPS)
 
   def test_Load(self):
     data = self.database._Load('agency.txt')
@@ -75,12 +75,12 @@ class TestDatabase(unittest.TestCase):
       self.assertEqual(len(t.stop_times), data['num_stop_times'])
 
   def testLoadAll(self):
-    database = gtfs_data.database.Database(GTFS_DATA, [])
+    database = gtfs_upcoming.schedule.Database(GTFS_DATA, [])
     database.Load()
     self.assertEqual(database._trip_db.keys(), set(['1167', '1168', '1169', 'ONIGHT']))
 
   def testGetScheduledFor(self):
-    database = gtfs_data.database.Database(GTFS_DATA, [])
+    database = gtfs_upcoming.schedule.Database(GTFS_DATA, [])
     database.Load()
 
     stop_id = INTERESTING_STOPS[0]
@@ -106,7 +106,7 @@ class TestDatabase(unittest.TestCase):
 
   def testGetScheduledForOvernightRoutes(self):
     """Test schedule generation for routes that span days"""
-    database = gtfs_data.database.Database(GTFS_DATA, [])
+    database = gtfs_upcoming.schedule.Database(GTFS_DATA, [])
     database.Load()
 
     stop_id = 'ONIGHT-STOP2'
@@ -162,7 +162,7 @@ class TestDatabase(unittest.TestCase):
     self.assertEqual(len(resp), 2)
 
   def testIsValidServiceDay(self):
-    database = gtfs_data.database.Database(GTFS_DATA, [])
+    database = gtfs_upcoming.schedule.Database(GTFS_DATA, [])
     database.Load()
 
     # The exceptions only apply to trips 1167 and 1169. Trip 1168 has no exceptions
@@ -203,7 +203,7 @@ class TestDatabase(unittest.TestCase):
 
 
   def testNumberOfDays(self):
-    self.assertEqual(len(gtfs_data.database.CALENDAR_DAYS), 7)
+    self.assertEqual(len(gtfs_upcoming.schedule.CALENDAR_DAYS), 7)
 
 if __name__ == '__main__':
     multiprocessing.set_start_method("spawn")

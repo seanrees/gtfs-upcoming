@@ -1,4 +1,4 @@
-import gtfs_data.loader
+from gtfs_upcoming.schedule import loader
 
 import collections
 import datetime
@@ -264,7 +264,7 @@ class Database:
     return ret
 
   def _Load(self, filename: str, keep: Dict[str, AbstractSet[str]]=None):
-    return gtfs_data.loader.Load(
+    return loader.Load(
       os.path.join(os.path.join(self._data_dir, filename)),
       keep)
 

@@ -1,6 +1,7 @@
-import gtfs_data.database
+import gtfs_upcoming.schedule
+from gtfs_upcoming import transit
+
 import multiprocessing
-import transit
 
 from google.protobuf import json_format
 from google.transit import gtfs_realtime_pb2    # type: ignore[import]
@@ -12,7 +13,7 @@ import unittest.mock
 TEST_FEEDMESSAGE_ONE = 'testdata/gtfsv1-sample-onetrip.json'
 TEST_FEEDMESSAGE_TWO = 'testdata/gtfsv1-sample-twotrips.json'
 INTERESTING_STOPS = ['8250DB003076']    # seq 30 for 1167, 25 for 1169
-GTFS_DATA = 'gtfs_data/testdata'
+GTFS_DATA = 'testdata/schedule'
 
 def fetch(input_file: str):
   """Simulates a real API call."""
@@ -24,7 +25,7 @@ def fetch(input_file: str):
 
 class TestTransit(unittest.TestCase):
   def setUp(self):
-    database = gtfs_data.database.Database(GTFS_DATA, INTERESTING_STOPS)
+    database = gtfs_upcoming.schedule.Database(GTFS_DATA, INTERESTING_STOPS)
     database.Load()
 
     self.fetch_input = TEST_FEEDMESSAGE_TWO
@@ -49,7 +50,7 @@ class TestTransit(unittest.TestCase):
     self.assertEqual(transit.delta_seconds(t3, t1), 18000)
 
   def testGetLive(self):
-    with unittest.mock.patch('transit.now') as mock_now:
+    with unittest.mock.patch('gtfs_upcoming.transit.now') as mock_now:
         mock_now.return_value = datetime.datetime(2020, 8, 20, 7, 0, 0)
 
         resp = self.transit.GetLive(INTERESTING_STOPS)
@@ -71,7 +72,7 @@ class TestTransit(unittest.TestCase):
     At this time, route 7A  (trip 1167) has passed the stop of interest so it should
     not come back in the dataset.
     """
-    with unittest.mock.patch('transit.now') as mock_now:
+    with unittest.mock.patch('gtfs_upcoming.transit.now') as mock_now:
         mock_now.return_value = datetime.datetime(2020, 8, 20, 8, 0, 0)
 
         resp = self.transit.GetLive(INTERESTING_STOPS)
@@ -83,7 +84,7 @@ class TestTransit(unittest.TestCase):
         self.assertEqual(resp[0].dueTime, '08:04:11')
 
   def testGetScheduled(self):
-    with unittest.mock.patch('transit.now') as mock_now:
+    with unittest.mock.patch('gtfs_upcoming.transit.now') as mock_now:
         mock_now.return_value = datetime.datetime(2020, 11, 19, 7, 00, 0)
 
         resp = self.transit.GetScheduled(INTERESTING_STOPS)
@@ -97,7 +98,7 @@ class TestTransit(unittest.TestCase):
 
   def testGetScheduledIgnorePassedStop(self):
     """Same as testGetLive except the mock time is 1 hour later."""
-    with unittest.mock.patch('transit.now') as mock_now:
+    with unittest.mock.patch('gtfs_upcoming.transit.now') as mock_now:
         mock_now.return_value = datetime.datetime(2020, 11, 19, 8, 00, 0)
 
         resp = self.transit.GetScheduled(INTERESTING_STOPS)
@@ -111,7 +112,7 @@ class TestTransit(unittest.TestCase):
     # and schedule.
     self.fetch_input = TEST_FEEDMESSAGE_ONE
 
-    with unittest.mock.patch('transit.now') as mock_now:
+    with unittest.mock.patch('gtfs_upcoming.transit.now') as mock_now:
         mock_now.return_value = datetime.datetime(2020, 11, 19, 7, 00, 0)
 
         resp = self.transit.GetUpcoming(INTERESTING_STOPS)

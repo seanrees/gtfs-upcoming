@@ -1,4 +1,4 @@
-import gtfs_data.database
+import gtfs_upcoming.schedule
 
 import datetime
 import logging
@@ -89,11 +89,11 @@ class Upcoming(NamedTuple):
     return self._asdict()
 
   @classmethod
-  def FromTrip(cls, trip: gtfs_data.database.Trip, stop_id: str, source: str, due: datetime.datetime, currentDateTime: datetime.datetime):
+  def FromTrip(cls, trip: gtfs_upcoming.schedule.Trip, stop_id: str, source: str, due: datetime.datetime, currentDateTime: datetime.datetime):
     return cls(
       trip_id=trip.trip_id,
       route=trip.route['route_short_name'],
-      route_type=gtfs_data.database.ROUTE_TYPES[trip.route['route_type']],
+      route_type=gtfs_upcoming.schedule.ROUTE_TYPES[trip.route['route_type']],
       headsign=trip.trip_headsign,
       direction=trip.direction_id,
       stop_id=stop_id,
@@ -103,7 +103,7 @@ class Upcoming(NamedTuple):
 
 
 class Transit:
-  def __init__(self, fetch_fn: Callable[[], bytes], db: gtfs_data.database.Database):
+  def __init__(self, fetch_fn: Callable[[], bytes], db: gtfs_upcoming.schedule.Database):
     self._fetch_fn = fetch_fn
     self._database = db
 

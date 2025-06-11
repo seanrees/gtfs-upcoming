@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 
-import httpd
-import fetch
-import gtfs_data.database
-import gtfs_data.loader
-import transit
+from gtfs_upcoming import httpd, fetch, transit
+import gtfs_upcoming.schedule
+from gtfs_upcoming.schedule import loader
 
 
 import argparse
@@ -157,12 +155,12 @@ def main(argv: List[str]) -> None:
   if not config:
     exit(-1)
 
-  gtfs_data.loader.MaxThreads = int(args.loader_max_threads)
-  gtfs_data.loader.MaxRowsPerChunk = int(args.loader_max_rows_per_chunk)
+  loader.MaxThreads = int(args.loader_max_threads)
+  loader.MaxRowsPerChunk = int(args.loader_max_rows_per_chunk)
   #multiprocessing.set_start_method("spawn")
 
   logging.info('Configured loader with %d threads, %d rows per chunk',
-    gtfs_data.loader.MaxThreads, gtfs_data.loader.MaxRowsPerChunk)
+    loader.MaxThreads, loader.MaxRowsPerChunk)
 
   logging.info('Loading GTFS data sources from "%s"', args.gtfs)
   if config.interesting_stops:
@@ -172,7 +170,7 @@ def main(argv: List[str]) -> None:
     logging.info('Loading data for all stops.')
 
   try:
-    database = gtfs_data.database.Database(
+    database = gtfs_upcoming.schedule.Database(
       args.gtfs, config.interesting_stops)
     database.Load()
     logging.info('Load complete.')
@@ -195,6 +193,10 @@ def main(argv: List[str]) -> None:
   http.serve_forever()
 
 
-if __name__ == '__main__':
+def real_main():
   faulthandler.enable()
   main(sys.argv)
+
+
+if __name__ == '__main__':
+  real_main()
