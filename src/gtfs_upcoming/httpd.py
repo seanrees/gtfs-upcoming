@@ -9,6 +9,9 @@ from opentelemetry import trace
 import prometheus_client    # type: ignore[import]
 
 
+logger = logging.getLogger(__name__)
+
+
 # Metrics
 REQUEST_COUNT = prometheus_client.Counter(
   'gtfs_http_requests_total',

@@ -1,4 +1,4 @@
-from gtfs_upcoming.schedule import loader
+from . import loader
 
 import collections
 import datetime
@@ -8,6 +8,9 @@ from typing import AbstractSet, Any, List, Dict, NamedTuple
 
 import prometheus_client    # type: ignore[import]
 from opentelemetry import trace
+
+
+logger = logging.getLogger(__name__)
 
 
 # Metrics
@@ -114,7 +117,7 @@ class Database:
     trip = self.GetTrip(trip_id)
     service = self._calendar_db.get(trip.service_id, None)
     if not service:
-      logging.error('service "%s" not found in database', trip.service_id)
+      logger.error('service "%s" not found in database', trip.service_id)
       return False
 
     start = service['start_date']
@@ -144,7 +147,7 @@ class Database:
 
     stops = self._stops_db.get(stop_id, None)
     if not stops:
-      logging.error('stop "%s" not found in database', stop_id)
+      logger.error('stop "%s" not found in database', stop_id)
       return ret
 
     if end < start:
@@ -181,7 +184,7 @@ class Database:
 
           service_date += one_day
       except ValueError:
-        logging.exception('invalid format for arrival_time_str "%s"',
+        logger.exception('invalid format for arrival_time_str "%s"',
           arrival_time_str)
         continue
 
@@ -227,11 +230,11 @@ class Database:
     for trip_id, row in trips.items():
       route_id = row['route_id']
       if route_id not in routes:
-        logging.debug('Trip "%s" references unknown route_id "%s"', trip_id, route_id)
+        logger.debug('Trip "%s" references unknown route_id "%s"', trip_id, route_id)
 
       st = stop_times.get(trip_id, None)
       if not st:
-        logging.debug('Trip "%s" has no stop times', trip_id)
+        logger.debug('Trip "%s" has no stop times', trip_id)
 
       t = Trip(trip_id, row['trip_headsign'], row['direction_id'], row['service_id'],
                routes.get(route_id, None), st)
@@ -275,7 +278,7 @@ class Database:
 
     for row in data:
       if key_name not in row:
-        logging.error('Key "%s" not found in row %s', key_name, row)
+        logger.error('Key "%s" not found in row %s', key_name, row)
         return None
 
       key = row[key_name]
@@ -290,6 +293,6 @@ class Database:
         ret[key] = row
 
     if duplicates:
-      logging.info('Detected %d duplicate %s keys', duplicates, key_name)
+      logger.info('Detected %d duplicate %s keys', duplicates, key_name)
 
     return ret

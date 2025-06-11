@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 
-from gtfs_upcoming import httpd, fetch, transit
-import gtfs_upcoming.schedule
-from gtfs_upcoming.schedule import loader
-
+from . import httpd, transit, realtime, schedule
+from .schedule import loader
 
 import argparse
 import collections
@@ -24,6 +22,9 @@ from typing import List, NamedTuple
 import prometheus_client    # type: ignore[import]
 
 
+logger = logging.getLogger(__name__)
+
+
 # Metrics
 API_ENV = prometheus_client.Info(
   'gtfs_api_environment',
@@ -37,13 +38,13 @@ class Configuration(NamedTuple):
 
 
 def _read_config(filename: str) -> Configuration:
-  logging.info('Reading "%s"', filename)
+  logger.info('Reading "%s"', filename)
 
   config = configparser.ConfigParser()
   try:
     config.read(filename)
   except configparser.Error as e:
-    logging.critical('Could not read "%s": %s', filename, e)
+    logger.critical('Could not read "%s": %s', filename, e)
     raise
 
   try:
@@ -66,7 +67,7 @@ def _read_config(filename: str) -> Configuration:
       api_key_secondary=sec,
       interesting_stops=stops)
   except KeyError as e:
-    logging.critical('Required key missing in "%s": %s', filename, e)
+    logger.critical('Required key missing in "%s": %s', filename, e)
     raise
 
 
@@ -120,7 +121,7 @@ class TransitHandler:
     req.Send(html)
 
 
-def main(argv: List[str]) -> None:
+def real_main(argv: List[str]) -> None:
   """Initialises the program."""
 
   parser = argparse.ArgumentParser(prog=argv[0])
@@ -132,14 +133,22 @@ def main(argv: List[str]) -> None:
   parser.add_argument('--loader_max_threads', help='Max load threads', default=os.cpu_count())
   parser.add_argument('--loader_max_rows_per_chunk', help='Number of rows per threaded chunk', default=100000)
   parser.add_argument('--provider', help='One of nta (Ireland) or vicroads (Victoria Australia)', default='nta')
+  parser.add_argument('--log_level', help='Logging level (DEBUG, INFO, WARNING, ERROR) [default: %(default)s]', default='INFO')
+  
   args = parser.parse_args()
+  
+  try:
+    level = getattr(logging, args.log_level)
+  except AttributeError:
+    print(f"Invalid --log_level: {args.log_level}")
+    sys.exit(-1)
 
   logging.basicConfig(
-      format='%(asctime)s %(levelname)8s %(message)s',
+      format='%(asctime)s [%(name)35s %(thread)d] %(levelname)10s %(message)s',
       datefmt='%Y/%m/%d %H:%M:%S',
-      level=logging.INFO)
+      level=level)
 
-  logging.info('Starting up')
+  logger.info('Starting up test')
 
   # We run Prometheus in a separate internal server. This is in case the main
   # serving webserver locks/crashes, we will retain metrics insight.
@@ -159,31 +168,31 @@ def main(argv: List[str]) -> None:
   loader.MaxRowsPerChunk = int(args.loader_max_rows_per_chunk)
   #multiprocessing.set_start_method("spawn")
 
-  logging.info('Configured loader with %d threads, %d rows per chunk',
+  logger.info('Configured loader with %d threads, %d rows per chunk',
     loader.MaxThreads, loader.MaxRowsPerChunk)
 
-  logging.info('Loading GTFS data sources from "%s"', args.gtfs)
+  logger.info('Loading GTFS data sources from "%s"', args.gtfs)
   if config.interesting_stops:
-    logging.info('Restricting data sources to %d interesting stops',
+    logger.info('Restricting data sources to %d interesting stops',
       len(config.interesting_stops))
   else:
-    logging.info('Loading data for all stops.')
+    logger.info('Loading data for all stops.')
 
   try:
-    database = gtfs_upcoming.schedule.Database(
+    database = schedule.Database(
       args.gtfs, config.interesting_stops)
     database.Load()
-    logging.info('Load complete.')
+    logger.info('Load complete.')
   except FileNotFoundError as fnfex:
-    logging.error(fnfex)
-    logging.fatal("Incomplete or missing GTFS database in %s. Run update-database.sh", args.gtfs)
+    logger.error(fnfex)
+    logger.fatal("Incomplete or missing GTFS database in %s. Run update-database.sh", args.gtfs)
     exit(-2)
 
-  fetcher = fetch.MakeFetcher(args.provider, args.env, config.api_key_primary)
+  fetcher = realtime.MakeFetcher(args.provider, args.env, config.api_key_primary)
   t = transit.Transit(fetcher.Fetch, database)
 
   port = int(args.port)
-  logging.info("Starting HTTP server on port %d", port)
+  logger.info("Starting HTTP server on port %d", port)
   http = httpd.HTTPServer(port)
   handler = TransitHandler(t, config.interesting_stops)
   http.Register('/upcoming.json', handler.HandleUpcoming)
@@ -193,10 +202,10 @@ def main(argv: List[str]) -> None:
   http.serve_forever()
 
 
-def real_main():
+def main():
   faulthandler.enable()
-  main(sys.argv)
+  real_main(sys.argv)
 
 
 if __name__ == '__main__':
-  real_main()
+  main()

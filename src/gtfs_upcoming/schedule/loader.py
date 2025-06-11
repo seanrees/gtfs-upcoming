@@ -9,6 +9,10 @@ import threading
 
 from typing import AbstractSet, Dict, List, MutableSet, Tuple
 
+
+logger = logging.getLogger(__name__)
+
+
 # Some NTA data files have a single unprintable character upfront; this will cause
 # DictReader to include that character in the key for the first field.
 BROKEN_CHARACTER = '\ufeff'
@@ -128,7 +132,7 @@ def Load(filename: str, keep: Dict[str, AbstractSet[str]]=None) -> List[Dict[str
     ret += r
     discard += d
 
-  logging.debug('Loaded "%s": %d rows loaded, %d discarded (filtering on=%s)',
+  logger.debug('Loaded "%s": %d rows loaded, %d discarded (filtering on=%s)',
     filename, len(ret), discard, keep.keys())
 
   return ret

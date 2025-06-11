@@ -4,6 +4,7 @@ import urllib.request
 
 import prometheus_client    # type: ignore[import]
 
+logger = logging.getLogger(__name__)
 
 
 # Metrics
@@ -26,6 +27,8 @@ REQUESTS = prometheus_client.Counter(
 
 
 class Fetcher(abc.ABC):
+
+  @abc.abstractmethod
   def request(self) -> urllib.request.Request:
     pass
 
@@ -83,7 +86,7 @@ def MakeFetcher(provider: str, env: str, api_key: str) -> Fetcher:
     if env == 'prod':
       url = IrelandNTA.PROD_URL
 
-    logging.info("Irish NTA, env=%s, url=%s", env, url)
+    logger.info("Irish NTA, env=%s, url=%s", env, url)
     return IrelandNTA(api_key, url)
   elif provider == "vicroads":
     if env == 'metrobus':
@@ -93,10 +96,10 @@ def MakeFetcher(provider: str, env: str, api_key: str) -> Fetcher:
     elif env == 'tram':
       url = VicRoads.YARRATRAMS_URL
     else:
-      logging.error("Unknown VicRoads/PTV env %s", env)
+      logger.error("Unknown VicRoads/PTV env %s", env)
       return None
     
-    logging.info("VicRoads/PTV, env=%s, url=%s", env, url)
+    logger.info("VicRoads/PTV, env=%s, url=%s", env, url)
     return VicRoads(api_key, url)
   
   return None

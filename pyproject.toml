@@ -47,7 +47,8 @@ Repository = "https://github.com/seanrees/gtfs-upcoming"
 Changelog = "https://github.com/seanrees/gtfs-upcoming/blob/main/CHANGELOG.md"
 
 [project.scripts]
-gtfs-upcoming = "gtfs_upcoming.main:real_main"
+gtfs-upcoming = "gtfs_upcoming.main:main"
+
 [tool]
 
 [tool.hatch.version]
