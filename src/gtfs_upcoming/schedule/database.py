@@ -1,14 +1,16 @@
-from . import loader
+from __future__ import annotations
 
 import collections
 import datetime
 import logging
 import os
-from typing import AbstractSet, Any, List, Dict, NamedTuple
+from collections.abc import Set as AbstractSet
+from typing import Any, NamedTuple
 
-import prometheus_client    # type: ignore[import]
+import prometheus_client  # type: ignore[import]
 from opentelemetry import trace
 
+from . import loader
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +71,8 @@ class Trip(NamedTuple):
   trip_headsign: str
   direction_id: str
   service_id: str
-  route: Dict[str, str]
-  stop_times: List[Dict[str, str]]
+  route: dict[str, str]
+  stop_times: list[dict[str, str]]
 
 
 class Database:
@@ -80,7 +82,7 @@ class Database:
   application.
   """
 
-  def __init__(self, data_dir: str, keep_stops: List[str]):
+  def __init__(self, data_dir: str, keep_stops: list[str]):
     """Initialises and loads the database.
 
     Args:
@@ -91,10 +93,10 @@ class Database:
     self._data_dir = data_dir
     self._keep_stops = keep_stops
     self._load_all_stops = len(keep_stops) == 0
-    self._stops_db : Dict[str, List[Dict[str, str]]] = {}
-    self._trip_db : Dict[str, Trip] = {}
-    self._calendar_db : Dict[str, Dict[str, str]] = {}
-    self._exceptions_db : Dict[str, Dict[datetime.date, str]] = {}
+    self._stops_db : dict[str, list[dict[str, str]]] = {}
+    self._trip_db : dict[str, Trip] = {}
+    self._calendar_db : dict[str, dict[str, str]] = {}
+    self._exceptions_db : dict[str, dict[datetime.date, str]] = {}
 
   @DATABASE_LOAD.time()
   def Load(self):
@@ -124,7 +126,7 @@ class Database:
     end = service['end_date']
     if dt < start or dt > end:
       return False
-    
+
     exc = self._exceptions_db.get(trip.service_id, {}).get(dt)
     if service.get(day) == CALENDAR_SERVICE_NOT_AVAILABLE:
       return exc == CALENDAR_EXCEPTION_SERVICE_ADDED
@@ -141,9 +143,9 @@ class Database:
       end: only return trips that arrive before this time
 
     Return:
-      List[Trip]
+      list[Trip]
     """
-    ret : List[Trip] = []
+    ret : list[Trip] = []
 
     stops = self._stops_db.get(stop_id, None)
     if not stops:
@@ -151,7 +153,8 @@ class Database:
       return ret
 
     if end < start:
-      raise ValueError('start must come before end')
+      msg = 'start must come before end'
+      raise ValueError(msg)
 
     one_day = datetime.timedelta(days=1)
     start_service_date = start.date()-one_day
@@ -167,7 +170,7 @@ class Database:
         # GTFS's data format allows for hours >24 to indicate times the
         # next day. E.g; 25:00 = 0100+1; this is useful if a service starts
         # on one day and carries through to the next.
-        hour, minute, second = [int(x) for x in arrival_time_str.split(':')]
+        hour, minute, second = (int(x) for x in arrival_time_str.split(':'))
         delta = datetime.timedelta(days=0)
 
         if hour >= 24:
@@ -176,7 +179,7 @@ class Database:
 
         a = datetime.time(hour=hour, minute=minute, second=second)
 
-        possibles : List[possibility] = []
+        possibles : list[possibility] = []
         service_date = start_service_date
         while service_date <= end_service_date:
           arrival_time = datetime.datetime.combine(service_date, a)+delta
@@ -197,7 +200,7 @@ class Database:
 
     return ret
 
-  def _LoadStops(self) -> Dict[str, Dict[str, str]]:
+  def _LoadStops(self) -> dict[str, dict[str, str]]:
     # First we need to extract the interesting trips and sequences.
     if self._load_all_stops:
       tmp_stop_times = self._Load('stop_times.txt')
@@ -207,13 +210,13 @@ class Database:
 
     return self._Collect(tmp_stop_times, 'stop_id', multi=True)
 
-  def _LoadTrips(self) -> Dict[str, Trip]:
+  def _LoadTrips(self) -> dict[str, Trip]:
     trip_ids = set()
     for vals in self._stops_db.values():
       for stop in vals:
         trip_ids.add(stop['trip_id'])
 
-    # Now collect the Trip->List of stops
+    # Now collect the Trip->list of stops
     stop_times = self._Collect(
       self._Load('stop_times.txt', {'trip_id': trip_ids}),
       'trip_id',
@@ -242,22 +245,22 @@ class Database:
 
     return trip_db
 
-  def _LoadCalendar(self) -> Dict[str, Dict[str, str]]:
+  def _LoadCalendar(self) -> dict[str, dict[str, str]]:
     """Loads calendar.txt."""
     dates = self._Collect(self._Load('calendar.txt'), 'service_id')
 
-    for _, data in dates.items():
+    for data in dates.values():
       start = datetime.datetime.strptime(data['start_date'], '%Y%m%d').date()
       end = datetime.datetime.strptime(data['end_date'], '%Y%m%d').date()
       data['start_date'] = start
       data['end_date'] = end
-    
+
     return dates
 
-  def _LoadExceptions(self) -> Dict[str, Dict[datetime.date, str]]:
+  def _LoadExceptions(self) -> dict[str, dict[datetime.date, str]]:
     """Loads calendar_dates.txt and preparses dates for easy lookup."""
     dates = self._Collect(self._Load('calendar_dates.txt'), 'service_id', multi=True)
-    ret : Dict[str, Dict] = {service_id: {} for service_id in dates}
+    ret : dict[str, dict] = {service_id: {} for service_id in dates}
 
     for service_id, data in dates.items():
       for d in data:
@@ -266,13 +269,13 @@ class Database:
 
     return ret
 
-  def _Load(self, filename: str, keep: Dict[str, AbstractSet[str]]=None):
+  def _Load(self, filename: str, keep: dict[str, AbstractSet[str]] | None = None):
     return loader.Load(
       os.path.join(os.path.join(self._data_dir, filename)),
       keep)
 
-  def _Collect(self, data: List[Dict[str, str]], key_name: str, multi: bool=False):
-    ret : Dict[str, Any] = {}
+  def _Collect(self, data: list[dict[str, str]], key_name: str, multi: bool=False):   # noqa: FBT001, FBT002
+    ret : dict[str, Any] = {}
 
     duplicates = 0
 

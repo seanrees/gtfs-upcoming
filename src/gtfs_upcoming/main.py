@@ -1,26 +1,19 @@
 #!/usr/bin/env python3
 
-from . import httpd, transit, realtime, schedule
-from .schedule import loader
-
 import argparse
-import collections
 import configparser
 import datetime
 import faulthandler
-import functools
 import json
 import logging
-import multiprocessing
 import os
 import sys
-import time
-import urllib.request
+from typing import NamedTuple
 
-from typing import List, NamedTuple
+import prometheus_client  # type: ignore[import]
 
-import prometheus_client    # type: ignore[import]
-
+from . import httpd, realtime, schedule, transit
+from .schedule import loader
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +27,7 @@ API_ENV = prometheus_client.Info(
 class Configuration(NamedTuple):
   api_key_primary: str
   api_key_secondary: str
-  interesting_stops: List[str]
+  interesting_stops: list[str]
 
 
 def _read_config(filename: str) -> Configuration:
@@ -49,15 +42,11 @@ def _read_config(filename: str) -> Configuration:
 
   try:
     # The NTA section was the original name. We keep it for compatibility.
-    if config.has_section('NTA'):
-      keys = config['NTA']
-    else:
-      keys = config['ApiKeys']
-
+    keys = config['NTA'] if config.has_section('NTA') else config['ApiKeys']
     pri = keys['PrimaryApiKey']
     sec = keys['SecondaryApiKey']
 
-    stops : List[str] = []
+    stops : list[str] = []
     stop_ids = config.get('Upcoming', 'InterestingStopIds', fallback=None)
     if stop_ids:
       stops = stop_ids.split(',')
@@ -72,7 +61,7 @@ def _read_config(filename: str) -> Configuration:
 
 
 class TransitHandler:
-  def __init__(self, transit: transit.Transit, stops: List[str]):
+  def __init__(self, transit: transit.Transit, stops: list[str]):
     self._transit = transit
     self._stops = stops
 
@@ -121,7 +110,7 @@ class TransitHandler:
     req.Send(html)
 
 
-def real_main(argv: List[str]) -> None:
+def real_main(argv: list[str]) -> None:
   """Initialises the program."""
 
   parser = argparse.ArgumentParser(prog=argv[0])
@@ -134,13 +123,13 @@ def real_main(argv: List[str]) -> None:
   parser.add_argument('--loader_max_rows_per_chunk', help='Number of rows per threaded chunk', default=100000)
   parser.add_argument('--provider', help='One of nta (Ireland) or vicroads (Victoria Australia)', default='nta')
   parser.add_argument('--log_level', help='Logging level (DEBUG, INFO, WARNING, ERROR) [default: %(default)s]', default='INFO')
-  
+
   args = parser.parse_args()
-  
+
   try:
     level = getattr(logging, args.log_level)
   except AttributeError:
-    print(f"Invalid --log_level: {args.log_level}")
+    print(f"Invalid --log_level: {args.log_level}")   # noqa: T201
     sys.exit(-1)
 
   logging.basicConfig(
@@ -148,7 +137,7 @@ def real_main(argv: List[str]) -> None:
       datefmt='%Y/%m/%d %H:%M:%S',
       level=level)
 
-  logger.info('Starting up test')
+  logger.info('Starting up')
 
   # We run Prometheus in a separate internal server. This is in case the main
   # serving webserver locks/crashes, we will retain metrics insight.
@@ -162,7 +151,7 @@ def real_main(argv: List[str]) -> None:
 
   config = _read_config(args.config)
   if not config:
-    exit(-1)
+    sys.exit(-1)
 
   loader.MaxThreads = int(args.loader_max_threads)
   loader.MaxRowsPerChunk = int(args.loader_max_rows_per_chunk)
@@ -184,9 +173,9 @@ def real_main(argv: List[str]) -> None:
     database.Load()
     logger.info('Load complete.')
   except FileNotFoundError as fnfex:
-    logger.error(fnfex)
+    logger.error(fnfex) # noqa: TRY400
     logger.fatal("Incomplete or missing GTFS database in %s. Run update-database.sh", args.gtfs)
-    exit(-2)
+    sys.exit(-2)
 
   fetcher = realtime.MakeFetcher(args.provider, args.env, config.api_key_primary)
   t = transit.Transit(fetcher.Fetch, database)

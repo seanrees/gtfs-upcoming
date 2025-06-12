@@ -1,13 +1,10 @@
-import logging
 import http.server
+import logging
 import urllib.parse
-import socketserver
+from collections.abc import Callable
 
-from typing import Callable, Dict
-
+import prometheus_client  # type: ignore[import]
 from opentelemetry import trace
-import prometheus_client    # type: ignore[import]
-
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +82,7 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
 class HTTPServer(http.server.HTTPServer):
   def __init__(self, port: int=6824):
     super().__init__(('', port), RequestHandler)
-    self._handlers : Dict[str, Callable[[RequestHandler], None]] = {}
+    self._handlers : dict[str, Callable[[RequestHandler], None]] = {}
 
   def Register(self, path: str, handler: Callable[[RequestHandler], None]):
     self._handlers[path] = handler

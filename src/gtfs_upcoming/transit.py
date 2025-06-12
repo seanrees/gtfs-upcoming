@@ -1,12 +1,13 @@
-from . import schedule
-
 import datetime
 import logging
-from typing import Any, Callable, Dict, List, NamedTuple
+from collections.abc import Callable
+from typing import NamedTuple
 
-from google.transit import gtfs_realtime_pb2    # type: ignore[import]
+import prometheus_client  # type: ignore[import]
+from google.transit import gtfs_realtime_pb2  # type: ignore[import]
 from opentelemetry import trace
-import prometheus_client                        # type: ignore[import]
+
+from . import schedule
 
 # Metrics
 MATCHED_TRIPS = prometheus_client.Summary(
@@ -86,7 +87,7 @@ class Upcoming(NamedTuple):
   source: str
 
 
-  def Dict(self) -> Dict[str,Any]:
+  def Dict(self) -> dict[str,object]:
     """Wrap _asdict() so consumers don't need to know this is a namedtuple."""
     return self._asdict()
 
@@ -117,11 +118,11 @@ class Transit:
 
   @SCHEDULED_TIME.time()
   @tracer.start_as_current_span("GetScheduled")
-  def GetScheduled(self, interesting_stops: List[str]) -> List[Upcoming]:
+  def GetScheduled(self, interesting_stops: list[str]) -> list[Upcoming]:
     start = now()
     end = now() + datetime.timedelta(minutes=120)
 
-    ret : List[Upcoming] = []
+    ret : list[Upcoming] = []
 
     for stop_id in interesting_stops:
       trips = self._database.GetScheduledFor(stop_id, start, end)
@@ -142,7 +143,7 @@ class Transit:
 
   @LIVE_TIME.time()
   @tracer.start_as_current_span("GetLive")
-  def GetLive(self, interesting_stops: List[str]) -> List[Upcoming]:
+  def GetLive(self, interesting_stops: list[str]) -> list[Upcoming]:
     resp = self.LoadFromAPI()
     ret = []
     early = 0
@@ -218,8 +219,8 @@ class Transit:
 
   @UPCOMING_TIME.time()
   @tracer.start_as_current_span("GetUpcoming")
-  def GetUpcoming(self, interesting_stops: List[str]) -> List[Upcoming]:
-    ret : List[Upcoming] = []
+  def GetUpcoming(self, interesting_stops: list[str]) -> list[Upcoming]:
+    ret : list[Upcoming] = []
 
     scheduled = self.GetScheduled(interesting_stops)
     known_trips = {s.trip_id: s for s in scheduled}

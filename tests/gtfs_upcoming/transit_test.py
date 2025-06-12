@@ -1,14 +1,13 @@
-import gtfs_upcoming.schedule
-from gtfs_upcoming import transit
-
-import multiprocessing
-
-from google.protobuf import json_format
-from google.transit import gtfs_realtime_pb2    # type: ignore[import]
-
 import datetime
+import multiprocessing
 import unittest
 import unittest.mock
+
+from google.protobuf import json_format
+from google.transit import gtfs_realtime_pb2  # type: ignore[import]
+
+import gtfs_upcoming.schedule
+from gtfs_upcoming import transit
 
 TEST_FEEDMESSAGE_ONE = 'testdata/gtfsv1-sample-onetrip.json'
 TEST_FEEDMESSAGE_TWO = 'testdata/gtfsv1-sample-twotrips.json'
@@ -17,7 +16,7 @@ GTFS_DATA = 'testdata/schedule'
 
 def fetch(input_file: str):
   """Simulates a real API call."""
-  with open(input_file, 'r') as f:
+  with open(input_file) as f:
     json = f.read()
 
   pb = json_format.Parse(json, gtfs_realtime_pb2.FeedMessage())
@@ -37,7 +36,7 @@ class TestTransit(unittest.TestCase):
 
   def testParseTime(self):
     now = transit.now()
-    self.assertEqual(transit.parseTime("24:20:00").date() - now.date(), datetime.timedelta(days=1))
+    assert transit.parseTime("24:20:00").date() - now.date() == datetime.timedelta(days=1)
 
   def testDelta_Seconds(self):
     now = datetime.datetime(2023, 8, 21)
@@ -45,9 +44,9 @@ class TestTransit(unittest.TestCase):
     t2 = datetime.datetime.combine(now, datetime.time(10, 45, 30))
     t3 = datetime.datetime.combine(now, datetime.time(15, 40, 00))
 
-    self.assertEqual(transit.delta_seconds(t1, t2), -330)
-    self.assertEqual(transit.delta_seconds(t2, t1), 330)
-    self.assertEqual(transit.delta_seconds(t3, t1), 18000)
+    assert transit.delta_seconds(t1, t2) == -330
+    assert transit.delta_seconds(t2, t1) == 330
+    assert transit.delta_seconds(t3, t1) == 18000
 
   def testGetLive(self):
     with unittest.mock.patch('gtfs_upcoming.transit.now') as mock_now:
@@ -55,16 +54,16 @@ class TestTransit(unittest.TestCase):
 
         resp = self.transit.GetLive(INTERESTING_STOPS)
 
-        self.assertEqual(2, len(resp))
+        assert len(resp) == 2
 
         # Scheduled is 07:20:16, transit data reflects a 4 minute delay (240 secs) so we expect
         # the due time at 07:24:16.
-        self.assertEqual(resp[0].route, '7A')
-        self.assertEqual(resp[0].dueTime, '07:24:16')
+        assert resp[0].route == '7A'
+        assert resp[0].dueTime == '07:24:16'
 
         # Scheduled arrival is 08:04:11, no delay.
-        self.assertEqual(resp[1].route, '7')
-        self.assertEqual(resp[1].dueTime, '08:04:11')
+        assert resp[1].route == '7'
+        assert resp[1].dueTime == '08:04:11'
 
   def testGetLiveIgnorePassedStop(self):
     """Same as testGetLive except the mock time is 1 hour later.
@@ -77,24 +76,24 @@ class TestTransit(unittest.TestCase):
 
         resp = self.transit.GetLive(INTERESTING_STOPS)
 
-        self.assertEqual(1, len(resp))
+        assert len(resp) == 1
 
         # Scheduled arrival is 08:04:11, no delay.
-        self.assertEqual(resp[0].route, '7')
-        self.assertEqual(resp[0].dueTime, '08:04:11')
+        assert resp[0].route == '7'
+        assert resp[0].dueTime == '08:04:11'
 
   def testGetScheduled(self):
     with unittest.mock.patch('gtfs_upcoming.transit.now') as mock_now:
         mock_now.return_value = datetime.datetime(2020, 11, 19, 7, 00, 0)
 
         resp = self.transit.GetScheduled(INTERESTING_STOPS)
-        self.assertEqual(2, len(resp))
-        self.assertEqual(resp[0].route, '7A')
-        self.assertEqual(resp[0].dueTime, '07:20:16')
-        self.assertEqual(resp[0].source, 'SCHEDULE')
-        self.assertEqual(resp[1].route, '7')
-        self.assertEqual(resp[1].dueTime, '08:04:11')
-        self.assertEqual(resp[1].source, 'SCHEDULE')
+        assert len(resp) == 2
+        assert resp[0].route == '7A'
+        assert resp[0].dueTime == '07:20:16'
+        assert resp[0].source == 'SCHEDULE'
+        assert resp[1].route == '7'
+        assert resp[1].dueTime == '08:04:11'
+        assert resp[1].source == 'SCHEDULE'
 
   def testGetScheduledIgnorePassedStop(self):
     """Same as testGetLive except the mock time is 1 hour later."""
@@ -102,10 +101,10 @@ class TestTransit(unittest.TestCase):
         mock_now.return_value = datetime.datetime(2020, 11, 19, 8, 00, 0)
 
         resp = self.transit.GetScheduled(INTERESTING_STOPS)
-        self.assertEqual(1, len(resp))
-        self.assertEqual(resp[0].route, '7')
-        self.assertEqual(resp[0].dueTime, '08:04:11')
-        self.assertEqual(resp[0].source, 'SCHEDULE')
+        assert len(resp) == 1
+        assert resp[0].route == '7'
+        assert resp[0].dueTime == '08:04:11'
+        assert resp[0].source == 'SCHEDULE'
 
   def testGetUpcoming(self):
     # Use only one trip; this means GetUpcoming will have to merge the live
@@ -116,13 +115,13 @@ class TestTransit(unittest.TestCase):
         mock_now.return_value = datetime.datetime(2020, 11, 19, 7, 00, 0)
 
         resp = self.transit.GetUpcoming(INTERESTING_STOPS)
-        self.assertEqual(2, len(resp))
-        self.assertEqual(resp[0].route, '7A')
-        self.assertEqual(resp[0].dueTime, '07:24:16')
-        self.assertEqual(resp[0].source, 'LIVE')
-        self.assertEqual(resp[1].route, '7')
-        self.assertEqual(resp[1].dueTime, '08:04:11')
-        self.assertEqual(resp[1].source, 'SCHEDULE')
+        assert len(resp) == 2
+        assert resp[0].route == '7A'
+        assert resp[0].dueTime == '07:24:16'
+        assert resp[0].source == 'LIVE'
+        assert resp[1].route == '7'
+        assert resp[1].dueTime == '08:04:11'
+        assert resp[1].source == 'SCHEDULE'
 
 
 if __name__ == '__main__':

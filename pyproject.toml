@@ -83,3 +83,14 @@ exclude_lines = [
 dependencies = [
   "pytest"
 ]
+
+[tool.ruff.lint]
+# DTZ001,5,7: we want to use naive datetimes because the GTFS schedule is in local time.
+# N802,3,6,N815: "function name should be lowercase; perhaps a change for later as it's a lot of work
+# TCH003: wants to only load if doing type-checking, this seems silly
+# TID252: relative imports are nice
+ignore = ["DTZ001", "DTZ005", "DTZ006", "DTZ007", "N802", "N803", "N806", "N815", "TCH003", "TID252"]
+
+[tool.ruff.lint.extend-per-file-ignores]
+# SLF001: tests can access internal state
+"tests/*" = ["SLF001"]

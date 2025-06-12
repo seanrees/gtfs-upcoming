@@ -1,7 +1,7 @@
-from gtfs_upcoming.schedule import loader
-
 import multiprocessing
 import unittest
+
+from gtfs_upcoming.schedule import loader
 
 TEST_FILE = 'testdata/schedule/agency.txt'
 TEST_FILE_BROKEN_CHARACTER = 'testdata/schedule/calendar.txt'
@@ -16,27 +16,27 @@ FIRST_ROW = {
 class TestLoader(unittest.TestCase):
   def testLoadAll(self):
     result = loader.Load(TEST_FILE)
-    self.assertEqual(len(result), 4)
-    self.assertEqual(result[0], FIRST_ROW)
+    assert len(result) == 4
+    assert result[0] == FIRST_ROW
 
 
   def testLoadWithFilter(self):
-    result = loader.Load(TEST_FILE, {'agency_id': set(['03C'])})
-    self.assertEqual(len(result), 1)
-    self.assertEqual(result[0], FIRST_ROW)
+    result = loader.Load(TEST_FILE, {'agency_id': {'03C'}})
+    assert len(result) == 1
+    assert result[0] == FIRST_ROW
 
   def testLoadWithMultiFilter(self):
     result = loader.Load(TEST_FILE, {
-      'agency_id':   set(['03C', '978']),
-      'agency_lang': set(['EN'])})
+      'agency_id':   {'03C', '978'},
+      'agency_lang': {'EN'}})
 
-    self.assertEqual(len(result), 2)
-    self.assertEqual(result[0]['agency_id'], '03C')
-    self.assertEqual(result[1]['agency_id'], '978')
+    assert len(result) == 2
+    assert result[0]['agency_id'] == '03C'
+    assert result[1]['agency_id'] == '978'
 
   def testBrokenCharacterRemoval(self):
     result = loader.Load(TEST_FILE_BROKEN_CHARACTER)
-    self.assertIn('service_id', result[0].keys())
+    assert 'service_id' in result[0]
 
 if __name__ == '__main__':
     multiprocessing.set_start_method("spawn")

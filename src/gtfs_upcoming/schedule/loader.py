@@ -1,14 +1,11 @@
-import collections
+from __future__ import annotations
+
 import concurrent.futures
 import csv
-import logging
 import io
-import os
-import queue
+import logging
 import threading
-
-from typing import AbstractSet, Dict, List, MutableSet, Tuple
-
+from collections.abc import Set as AbstractSet
 
 logger = logging.getLogger(__name__)
 
@@ -39,11 +36,11 @@ class BufferedExecutor:
   def submit(self, *args, **kwargs):
     self._sem.acquire()
     f = self._pool.submit(*args, **kwargs)
-    f.add_done_callback(lambda unused: self._sem.release())
+    f.add_done_callback(lambda _: self._sem.release())
     return f
 
 
-def loadChunk(io: io.StringIO, keep: Dict[str, AbstractSet[str]]=None) -> Tuple[List[Dict[str,str]], int]:
+def loadChunk(io: io.StringIO, keep: dict[str, AbstractSet[str]] | None = None) -> tuple[list[dict[str,str]], int]:
   """Worker code for LoadParallel.
 
   Args:
@@ -51,7 +48,7 @@ def loadChunk(io: io.StringIO, keep: Dict[str, AbstractSet[str]]=None) -> Tuple[
     keep: same as in LoadParallel
 
   Returns:
-    A tuple containing a list of Dict[str, str] for each row matching keep,
+    A tuple containing a list of dict[str, str] for each row matching keep,
     and an integer for each discarded row.
   """
   ret = []
@@ -75,7 +72,7 @@ def loadChunk(io: io.StringIO, keep: Dict[str, AbstractSet[str]]=None) -> Tuple[
   return ret, discard
 
 
-def Load(filename: str, keep: Dict[str, AbstractSet[str]]=None) -> List[Dict[str,str]]:
+def Load(filename: str, keep: dict[str, AbstractSet[str]] | None = None) -> list[dict[str,str]]:
   """Loads GTFS package data from a given file.
 
   Args:
@@ -84,7 +81,7 @@ def Load(filename: str, keep: Dict[str, AbstractSet[str]]=None) -> List[Dict[str
       row read much have an acceptable value for each key.
 
   Returns:
-    A list of Dict[str,str] for each row matching keep.
+    A list of dict[str,str] for each row matching keep.
 
   Raises:
     FileNotFoundError if filename isn't present.
