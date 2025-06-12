@@ -22,12 +22,18 @@ The display previously relied on the now-deprecated SmartDublin RTPI service.
 ## Usage
 
 ```sh
-% main.py --config=config.ini --port=6824 --promport=8000 --provider=nta --env=prod
-...
-2020/08/23 08:58:09    INFO Starting HTTP server on port 6824
+% gtfs-upcoming -- --help
+2025/06/12 15:59:48 [                 gtfs_upcoming.main 124634004029568]       INFO Starting up
+2025/06/12 15:59:48 [                 gtfs_upcoming.main 124634004029568]       INFO Reading "vicroads/metrotrain.ini"
+2025/06/12 15:59:48 [                 gtfs_upcoming.main 124634004029568]       INFO Configured loader with 16 threads, 100000 rows per chunk
+2025/06/12 15:59:48 [                 gtfs_upcoming.main 124634004029568]       INFO Loading GTFS data sources from "vicroads/2"
+2025/06/12 15:59:48 [                 gtfs_upcoming.main 124634004029568]       INFO Restricting data sources to 1 interesting stops
+2025/06/12 15:59:49 [                 gtfs_upcoming.main 124634004029568]       INFO Load complete.
+2025/06/12 15:59:49 [       gtfs_upcoming.realtime.fetch 124634004029568]       INFO VicRoads/PTV, env=metrotrain, url=https://data-exchange-api.vicroads.vic.gov.au/opendata/v1/gtfsr/metrotrain-tripupdates
+2025/06/12 15:59:49 [                 gtfs_upcoming.main 124634004029568]       INFO Starting HTTP server on port 6824
 ```
 
-Then browse to http://127.0.0.1:6824/upcoming.json
+Then browse to http://localhost:6824/upcoming.json to see.
 
 ### Sample Output
 
@@ -74,31 +80,37 @@ Endpoint | Arguments | Notes
 /debugz | _(none)_ | Debug endpoint for GTFS API calls
 :8000 | _(none)_ | Prometheus metrics, if --promport is specified
 
-## Build
+## Run and Build
 
-This project is built with [Bazel](http://bazel.build). If you have bazel,
-then building/running is trivial:
+This project is built with [Hatch](https://hatch.pypa.io/latest/). This is a change made in
+June 2025, previously the project was built with Bazel.
 
 ```sh
-% bazel run :main -- [--config CONFIG] [--gtfs GTFS] [--port PORT] [--provider {nta,vicroads}] [--env {prod,test,metrotrain,tram}] 
+% hatch run gtfs-upcoming -- [--config CONFIG] [--gtfs GTFS] [--port PORT] [--provider {nta,vicroads}] [--env {prod,test,metrotrain,tram}] 
 ```
 
-The BUILD file also defines a Debian (.deb) build target.
+To build a wheel (e.g; to install with `pip`) use this. The `whl` file will emit into the `dist/` directory.
+```sh
+% hatch build
+```
 
 ## Docker
-A Dockerfile is provided, which installs the latest master code from github, and the 
-GTFS-R zip file from the link above. Build the docker file as follows:
+An experimental Dockerfile can be used. It builds from local sources. It requires a volume mount that includes
+the GTFS Schedule data (e.g; `trips.txt`, `routes.txt`) _and_ your `config.ini`.
 
-``` bash
-docker build . --tag tfi_gtfs
+The Dockerfile also expects 2 environment variables if you want to override `--provider` and/or `--env`. Use
+`GTFS_PROVIDER` and `GTFS_ENVIRONMENT` respectively.
+
+To build:
+```sh
+% docker build . --tag gtfs-upcoming
 ```
-You run it with a `config.ini` from your project directory as follows:
 
-``` bash
-docker run -v ./config.ini:/app/config.ini:ro -p 6824:6824 tfi_gtfs --config=config.ini --env=prod --port=6824 --gtfs=GTFS_Realtime
+Example run:
+
+```sh
+% docker run -v path-to-gtfs-and-config:/gtfs -e GTFS_PROVIDER=vicroads -e GTFS_ENVIRONMENT=metrotrain -p 6824:6824 -p 6825:6825 gtfs-upcoming
 ```
-
-You should now be able to access the API on your local machine.
 
 ## Data and Configuration
 
