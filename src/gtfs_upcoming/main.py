@@ -155,7 +155,6 @@ def real_main(argv: list[str]) -> None:
 
   loader.MaxThreads = int(args.loader_max_threads)
   loader.MaxRowsPerChunk = int(args.loader_max_rows_per_chunk)
-  #multiprocessing.set_start_method("spawn")
 
   logger.info('Configured loader with %d threads, %d rows per chunk',
     loader.MaxThreads, loader.MaxRowsPerChunk)

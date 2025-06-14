@@ -38,6 +38,6 @@ class TestLoader(unittest.TestCase):
     result = loader.Load(TEST_FILE_BROKEN_CHARACTER)
     assert 'service_id' in result[0]
 
+
 if __name__ == '__main__':
-    multiprocessing.set_start_method("spawn")
     unittest.main()

@@ -208,5 +208,4 @@ class TestDatabase(unittest.TestCase):
     assert len(CALENDAR_DAYS) == 7
 
 if __name__ == '__main__':
-    multiprocessing.set_start_method("spawn")
     unittest.main()

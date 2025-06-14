@@ -30,7 +30,7 @@ class BufferedExecutor:
   potentially overwhelm memory on a small system with lots of StringIOs.
   """
   def __init__(self, max_workers:int=0):
-    self._pool = concurrent.futures.ProcessPoolExecutor(max_workers=max_workers)
+    self._pool = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
     self._sem = threading.Semaphore(value=max_workers*2-1)
 
   def submit(self, *args, **kwargs):
