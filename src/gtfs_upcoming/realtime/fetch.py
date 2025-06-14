@@ -2,8 +2,9 @@ import abc
 import logging
 import urllib.request
 
-import prometheus_client    # type: ignore[import]
+import prometheus_client  # type: ignore[import]
 
+logger = logging.getLogger(__name__)
 
 
 # Metrics
@@ -26,6 +27,8 @@ REQUESTS = prometheus_client.Counter(
 
 
 class Fetcher(abc.ABC):
+
+  @abc.abstractmethod
   def request(self) -> urllib.request.Request:
     pass
 
@@ -35,7 +38,7 @@ class Fetcher(abc.ABC):
     REQUESTS.inc()
 
     req = self.request()
-    with urllib.request.urlopen(req) as f:
+    with urllib.request.urlopen(req) as f:    # noqa: S310
       out = f.read()
       RESPONSE_STATUS.labels(f.status).inc()
 
@@ -56,8 +59,8 @@ class IrelandNTA(Fetcher):
       "Cache-Control": "no-cache",
       "x-api-key": self.api_key,
     }
-    return urllib.request.Request(self.url, None, headers)
-  
+    return urllib.request.Request(self.url, None, headers)    # noqa: S310
+
 
 class VicRoads(Fetcher):
   METROBUS_URL = "https://data-exchange-api.vicroads.vic.gov.au/opendata/v1/gtfsr/metrobus-tripupdates"
@@ -74,8 +77,8 @@ class VicRoads(Fetcher):
       "Ocp-Apim-Subscription-Key": self.api_key,
       "User-Agent": "github.com/seanrees/gtfs-upcoming"      # endpoint does not like the Python UA
     }
-    return urllib.request.Request(self.url, None, headers)
-  
+    return urllib.request.Request(self.url, None, headers)  # noqa: S310
+
 
 def MakeFetcher(provider: str, env: str, api_key: str) -> Fetcher:
   if provider == "nta":
@@ -83,9 +86,10 @@ def MakeFetcher(provider: str, env: str, api_key: str) -> Fetcher:
     if env == 'prod':
       url = IrelandNTA.PROD_URL
 
-    logging.info("Irish NTA, env=%s, url=%s", env, url)
+    logger.info("Irish NTA, env=%s, url=%s", env, url)
     return IrelandNTA(api_key, url)
-  elif provider == "vicroads":
+
+  if provider == "vicroads":
     if env == 'metrobus':
       url = VicRoads.METROBUS_URL
     elif env == 'metrotrain':
@@ -93,10 +97,12 @@ def MakeFetcher(provider: str, env: str, api_key: str) -> Fetcher:
     elif env == 'tram':
       url = VicRoads.YARRATRAMS_URL
     else:
-      logging.error("Unknown VicRoads/PTV env %s", env)
+      logger.error("Unknown VicRoads/PTV env %s", env)
       return None
-    
-    logging.info("VicRoads/PTV, env=%s, url=%s", env, url)
+
+    logger.info("VicRoads/PTV, env=%s, url=%s", env, url)
     return VicRoads(api_key, url)
-  
+
+  logger.error("Unknown provider %s", provider)
+
   return None

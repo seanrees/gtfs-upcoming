@@ -1,1 +1,0 @@
-ARGS="--gtfs=/var/cache/gtfs --env=prod --config=/etc/gtfs-upcoming/config.ini --promport=8000 --loader_max_rows_per_chunk=10000"

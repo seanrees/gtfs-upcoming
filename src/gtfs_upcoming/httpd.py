@@ -1,11 +1,12 @@
-import logging
 import http.server
+import logging
 import urllib.parse
-import socketserver
+from collections.abc import Callable
 
-from typing import Callable, Dict
+import prometheus_client  # type: ignore[import]
+from opentelemetry import trace
 
-import prometheus_client    # type: ignore[import]
+logger = logging.getLogger(__name__)
 
 
 # Metrics
@@ -23,12 +24,14 @@ UNKNOWN_PATH_COUNT = prometheus_client.Counter(
   'gtfs_http_unknown_paths_total',
   'Requests to unknown paths in the internal webserver')
 
+tracer = trace.get_tracer("tracer.httpd")
 
 class RequestHandler(http.server.BaseHTTPRequestHandler):
   # Override StreamRequestHandler.timeout; applies to the
   # request socket.
   timeout = 5
 
+  @tracer.start_as_current_span("do_GET")
   def do_GET(self):
     pr = urllib.parse.urlparse(self.path)
     path = pr.path
@@ -42,6 +45,7 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
       self.Handle404()
       UNKNOWN_PATH_COUNT.inc()
 
+  @tracer.start_as_current_span("Handle404")
   def Handle404(self):
     self.SendHeaders(404, 'text/html')
 
@@ -78,7 +82,7 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
 class HTTPServer(http.server.HTTPServer):
   def __init__(self, port: int=6824):
     super().__init__(('', port), RequestHandler)
-    self._handlers : Dict[str, Callable[[RequestHandler], None]] = {}
+    self._handlers : dict[str, Callable[[RequestHandler], None]] = {}
 
   def Register(self, path: str, handler: Callable[[RequestHandler], None]):
     self._handlers[path] = handler

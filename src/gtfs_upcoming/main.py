@@ -1,29 +1,21 @@
 #!/usr/bin/env python3
 
-import httpd
-import fetch
-import gtfs_data.database
-import gtfs_data.loader
-import transit
-
-
 import argparse
-import collections
 import configparser
 import datetime
 import faulthandler
-import functools
 import json
 import logging
-import multiprocessing
 import os
 import sys
-import time
-import urllib.request
+from typing import NamedTuple
 
-from typing import List, NamedTuple
+import prometheus_client  # type: ignore[import]
 
-import prometheus_client    # type: ignore[import]
+from . import httpd, realtime, schedule, transit
+from .schedule import loader
+
+logger = logging.getLogger(__name__)
 
 
 # Metrics
@@ -35,30 +27,26 @@ API_ENV = prometheus_client.Info(
 class Configuration(NamedTuple):
   api_key_primary: str
   api_key_secondary: str
-  interesting_stops: List[str]
+  interesting_stops: list[str]
 
 
 def _read_config(filename: str) -> Configuration:
-  logging.info('Reading "%s"', filename)
+  logger.info('Reading "%s"', filename)
 
   config = configparser.ConfigParser()
   try:
     config.read(filename)
   except configparser.Error as e:
-    logging.critical('Could not read "%s": %s', filename, e)
+    logger.critical('Could not read "%s": %s', filename, e)
     raise
 
   try:
     # The NTA section was the original name. We keep it for compatibility.
-    if config.has_section('NTA'):
-      keys = config['NTA']
-    else:
-      keys = config['ApiKeys']
-
+    keys = config['NTA'] if config.has_section('NTA') else config['ApiKeys']
     pri = keys['PrimaryApiKey']
     sec = keys['SecondaryApiKey']
 
-    stops : List[str] = []
+    stops : list[str] = []
     stop_ids = config.get('Upcoming', 'InterestingStopIds', fallback=None)
     if stop_ids:
       stops = stop_ids.split(',')
@@ -68,12 +56,12 @@ def _read_config(filename: str) -> Configuration:
       api_key_secondary=sec,
       interesting_stops=stops)
   except KeyError as e:
-    logging.critical('Required key missing in "%s": %s', filename, e)
+    logger.critical('Required key missing in "%s": %s', filename, e)
     raise
 
 
 class TransitHandler:
-  def __init__(self, transit: transit.Transit, stops: List[str]):
+  def __init__(self, transit: transit.Transit, stops: list[str]):
     self._transit = transit
     self._stops = stops
 
@@ -122,7 +110,7 @@ class TransitHandler:
     req.Send(html)
 
 
-def main(argv: List[str]) -> None:
+def real_main(argv: list[str]) -> None:
   """Initialises the program."""
 
   parser = argparse.ArgumentParser(prog=argv[0])
@@ -134,14 +122,22 @@ def main(argv: List[str]) -> None:
   parser.add_argument('--loader_max_threads', help='Max load threads', default=os.cpu_count())
   parser.add_argument('--loader_max_rows_per_chunk', help='Number of rows per threaded chunk', default=100000)
   parser.add_argument('--provider', help='One of nta (Ireland) or vicroads (Victoria Australia)', default='nta')
+  parser.add_argument('--log_level', help='Logging level (DEBUG, INFO, WARNING, ERROR) [default: %(default)s]', default='INFO')
+
   args = parser.parse_args()
 
-  logging.basicConfig(
-      format='%(asctime)s %(levelname)8s %(message)s',
-      datefmt='%Y/%m/%d %H:%M:%S',
-      level=logging.DEBUG)
+  try:
+    level = getattr(logging, args.log_level)
+  except AttributeError:
+    print(f"Invalid --log_level: {args.log_level}")   # noqa: T201
+    sys.exit(-1)
 
-  logging.info('Starting up')
+  logging.basicConfig(
+      format='%(asctime)s [%(name)35s %(thread)d] %(levelname)10s %(message)s',
+      datefmt='%Y/%m/%d %H:%M:%S',
+      level=level)
+
+  logger.info('Starting up')
 
   # We run Prometheus in a separate internal server. This is in case the main
   # serving webserver locks/crashes, we will retain metrics insight.
@@ -155,37 +151,36 @@ def main(argv: List[str]) -> None:
 
   config = _read_config(args.config)
   if not config:
-    exit(-1)
+    sys.exit(-1)
 
-  gtfs_data.loader.MaxThreads = int(args.loader_max_threads)
-  gtfs_data.loader.MaxRowsPerChunk = int(args.loader_max_rows_per_chunk)
-  multiprocessing.set_start_method("spawn")
+  loader.MaxThreads = int(args.loader_max_threads)
+  loader.MaxRowsPerChunk = int(args.loader_max_rows_per_chunk)
 
-  logging.info('Configured loader with %d threads, %d rows per chunk',
-    gtfs_data.loader.MaxThreads, gtfs_data.loader.MaxRowsPerChunk)
+  logger.info('Configured loader with %d threads, %d rows per chunk',
+    loader.MaxThreads, loader.MaxRowsPerChunk)
 
-  logging.info('Loading GTFS data sources from "%s"', args.gtfs)
+  logger.info('Loading GTFS data sources from "%s"', args.gtfs)
   if config.interesting_stops:
-    logging.info('Restricting data sources to %d interesting stops',
+    logger.info('Restricting data sources to %d interesting stops',
       len(config.interesting_stops))
   else:
-    logging.info('Loading data for all stops.')
+    logger.info('Loading data for all stops.')
 
   try:
-    database = gtfs_data.database.Database(
+    database = schedule.Database(
       args.gtfs, config.interesting_stops)
     database.Load()
-    logging.info('Load complete.')
+    logger.info('Load complete.')
   except FileNotFoundError as fnfex:
-    logging.error(fnfex)
-    logging.fatal("Incomplete or missing GTFS database in %s. Run update-database.sh", args.gtfs)
-    exit(-2)
+    logger.error(fnfex) # noqa: TRY400
+    logger.fatal("Incomplete or missing GTFS database in %s. Run update-database.sh", args.gtfs)
+    sys.exit(-2)
 
-  fetcher = fetch.MakeFetcher(args.provider, args.env, config.api_key_primary)
+  fetcher = realtime.MakeFetcher(args.provider, args.env, config.api_key_primary)
   t = transit.Transit(fetcher.Fetch, database)
 
   port = int(args.port)
-  logging.info("Starting HTTP server on port %d", port)
+  logger.info("Starting HTTP server on port %d", port)
   http = httpd.HTTPServer(port)
   handler = TransitHandler(t, config.interesting_stops)
   http.Register('/upcoming.json', handler.HandleUpcoming)
@@ -195,6 +190,10 @@ def main(argv: List[str]) -> None:
   http.serve_forever()
 
 
-if __name__ == '__main__':
+def main():
   faulthandler.enable()
-  main(sys.argv)
+  real_main(sys.argv)
+
+
+if __name__ == '__main__':
+  main()

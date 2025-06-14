@@ -1,13 +1,14 @@
-import collections
+from __future__ import annotations
+
 import concurrent.futures
 import csv
-import logging
 import io
-import os
-import queue
+import logging
 import threading
+from collections.abc import Set as AbstractSet
 
-from typing import AbstractSet, Dict, List, MutableSet, Tuple
+logger = logging.getLogger(__name__)
+
 
 # Some NTA data files have a single unprintable character upfront; this will cause
 # DictReader to include that character in the key for the first field.
@@ -29,17 +30,17 @@ class BufferedExecutor:
   potentially overwhelm memory on a small system with lots of StringIOs.
   """
   def __init__(self, max_workers:int=0):
-    self._pool = concurrent.futures.ProcessPoolExecutor(max_workers=max_workers)
+    self._pool = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
     self._sem = threading.Semaphore(value=max_workers*2-1)
 
   def submit(self, *args, **kwargs):
     self._sem.acquire()
     f = self._pool.submit(*args, **kwargs)
-    f.add_done_callback(lambda unused: self._sem.release())
+    f.add_done_callback(lambda _: self._sem.release())
     return f
 
 
-def loadChunk(io: io.StringIO, keep: Dict[str, AbstractSet[str]]=None) -> Tuple[List[Dict[str,str]], int]:
+def loadChunk(io: io.StringIO, keep: dict[str, AbstractSet[str]] | None = None) -> tuple[list[dict[str,str]], int]:
   """Worker code for LoadParallel.
 
   Args:
@@ -47,7 +48,7 @@ def loadChunk(io: io.StringIO, keep: Dict[str, AbstractSet[str]]=None) -> Tuple[
     keep: same as in LoadParallel
 
   Returns:
-    A tuple containing a list of Dict[str, str] for each row matching keep,
+    A tuple containing a list of dict[str, str] for each row matching keep,
     and an integer for each discarded row.
   """
   ret = []
@@ -71,7 +72,7 @@ def loadChunk(io: io.StringIO, keep: Dict[str, AbstractSet[str]]=None) -> Tuple[
   return ret, discard
 
 
-def Load(filename: str, keep: Dict[str, AbstractSet[str]]=None) -> List[Dict[str,str]]:
+def Load(filename: str, keep: dict[str, AbstractSet[str]] | None = None) -> list[dict[str,str]]:
   """Loads GTFS package data from a given file.
 
   Args:
@@ -80,7 +81,7 @@ def Load(filename: str, keep: Dict[str, AbstractSet[str]]=None) -> List[Dict[str
       row read much have an acceptable value for each key.
 
   Returns:
-    A list of Dict[str,str] for each row matching keep.
+    A list of dict[str,str] for each row matching keep.
 
   Raises:
     FileNotFoundError if filename isn't present.
@@ -128,7 +129,7 @@ def Load(filename: str, keep: Dict[str, AbstractSet[str]]=None) -> List[Dict[str
     ret += r
     discard += d
 
-  logging.debug('Loaded "%s": %d rows loaded, %d discarded (filtering on=%s)',
+  logger.debug('Loaded "%s": %d rows loaded, %d discarded (filtering on=%s)',
     filename, len(ret), discard, keep.keys())
 
   return ret

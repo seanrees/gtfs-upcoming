@@ -1,11 +1,13 @@
-import gtfs_data.database
-
 import datetime
 import logging
-from typing import Any, Callable, Dict, List, NamedTuple
+from collections.abc import Callable
+from typing import NamedTuple
 
-from google.transit import gtfs_realtime_pb2    # type: ignore[import]
-import prometheus_client                        # type: ignore[import]
+import prometheus_client  # type: ignore[import]
+from google.transit import gtfs_realtime_pb2  # type: ignore[import]
+from opentelemetry import trace
+
+from . import schedule
 
 # Metrics
 MATCHED_TRIPS = prometheus_client.Summary(
@@ -45,6 +47,11 @@ LIVE_TIME = prometheus_client.Summary(
   'Time to run GetLive')
 
 
+logger = logging.getLogger(__name__)
+
+tracer = trace.get_tracer("tracer.transit")
+
+
 def now() -> datetime.datetime:
   """Provides a convenient hook for mocking.
 
@@ -80,16 +87,16 @@ class Upcoming(NamedTuple):
   source: str
 
 
-  def Dict(self) -> Dict[str,Any]:
+  def Dict(self) -> dict[str,object]:
     """Wrap _asdict() so consumers don't need to know this is a namedtuple."""
     return self._asdict()
 
   @classmethod
-  def FromTrip(cls, trip: gtfs_data.database.Trip, stop_id: str, source: str, due: datetime.datetime, currentDateTime: datetime.datetime):
+  def FromTrip(cls, trip: schedule.Trip, stop_id: str, source: str, due: datetime.datetime, currentDateTime: datetime.datetime):
     return cls(
       trip_id=trip.trip_id,
       route=trip.route['route_short_name'],
-      route_type=gtfs_data.database.ROUTE_TYPES[trip.route['route_type']],
+      route_type=schedule.ROUTE_TYPES[trip.route['route_type']],
       headsign=trip.trip_headsign,
       direction=trip.direction_id,
       stop_id=stop_id,
@@ -99,7 +106,7 @@ class Upcoming(NamedTuple):
 
 
 class Transit:
-  def __init__(self, fetch_fn: Callable[[], bytes], db: gtfs_data.database.Database):
+  def __init__(self, fetch_fn: Callable[[], bytes], db: schedule.Database):
     self._fetch_fn = fetch_fn
     self._database = db
 
@@ -110,11 +117,12 @@ class Transit:
     return ret
 
   @SCHEDULED_TIME.time()
-  def GetScheduled(self, interesting_stops: List[str]) -> List[Upcoming]:
+  @tracer.start_as_current_span("GetScheduled")
+  def GetScheduled(self, interesting_stops: list[str]) -> list[Upcoming]:
     start = now()
     end = now() + datetime.timedelta(minutes=120)
 
-    ret : List[Upcoming] = []
+    ret : list[Upcoming] = []
 
     for stop_id in interesting_stops:
       trips = self._database.GetScheduledFor(stop_id, start, end)
@@ -134,7 +142,8 @@ class Transit:
     return sorted(ret, key=lambda x: x.dueInSeconds)
 
   @LIVE_TIME.time()
-  def GetLive(self, interesting_stops: List[str]) -> List[Upcoming]:
+  @tracer.start_as_current_span("GetLive")
+  def GetLive(self, interesting_stops: list[str]) -> list[Upcoming]:
     resp = self.LoadFromAPI()
     ret = []
     early = 0
@@ -209,8 +218,9 @@ class Transit:
     return ret
 
   @UPCOMING_TIME.time()
-  def GetUpcoming(self, interesting_stops: List[str]) -> List[Upcoming]:
-    ret : List[Upcoming] = []
+  @tracer.start_as_current_span("GetUpcoming")
+  def GetUpcoming(self, interesting_stops: list[str]) -> list[Upcoming]:
+    ret : list[Upcoming] = []
 
     scheduled = self.GetScheduled(interesting_stops)
     known_trips = {s.trip_id: s for s in scheduled}

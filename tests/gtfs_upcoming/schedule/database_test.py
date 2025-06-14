@@ -1,21 +1,23 @@
-import gtfs_data.database
-
 import datetime
 import multiprocessing
 import unittest
 
-TEST_FILE = 'gtfs_data/testdata/agency.txt'
-GTFS_DATA = 'gtfs_data/testdata'
+import pytest
+
+from gtfs_upcoming.schedule import CALENDAR_DAYS, Database
+
+TEST_FILE = 'testdata/schedule/agency.txt'
+GTFS_DATA = 'testdata/schedule'
 INTERESTING_STOPS = ['8220DB000490']
 
 
 class TestDatabase(unittest.TestCase):
   def setUp(self):
-    self.database = gtfs_data.database.Database(GTFS_DATA, INTERESTING_STOPS)
+    self.database = Database(GTFS_DATA, INTERESTING_STOPS)
 
   def test_Load(self):
     data = self.database._Load('agency.txt')
-    self.assertEqual(len(data), 4)
+    assert len(data) == 4
 
   def test_Collect(self):
     data = [
@@ -25,23 +27,23 @@ class TestDatabase(unittest.TestCase):
     ]
 
     c = self.database._Collect(data, 'a')
-    self.assertEqual(c, {
+    assert c == {
       'one': {'a': 'one', 'b': 300},
-      'two': {'a': 'two', 'b': 400}})
+      'two': {'a': 'two', 'b': 400}}
 
     c = self.database._Collect(data, 'a', multi=True)
-    self.assertEqual(c, {
+    assert c == {
       'one': [{'a': 'one', 'b': 200}, {'a': 'one', 'b': 300}],
-      'two': [{'a': 'two', 'b': 400}]})
+      'two': [{'a': 'two', 'b': 400}]}
 
   def testGetTrip(self):
     self.database.Load()
     found = self.database.GetTrip('1167')
-    self.assertIsNotNone(found)
-    self.assertEqual(found.trip_headsign, 'Loughlinstown Wood Estate - Mountjoy Square Nth')
+    assert found is not None
+    assert found.trip_headsign == 'Loughlinstown Wood Estate - Mountjoy Square Nth'
 
     notfound = self.database.GetTrip('1168')
-    self.assertIsNone(notfound)
+    assert notfound is None
 
   def testLoad(self):
     self.database.Load()
@@ -61,26 +63,26 @@ class TestDatabase(unittest.TestCase):
       }
     }
 
-    self.assertEqual(len(self.database._trip_db.keys()), 2)
+    assert len(self.database._trip_db.keys()) == 2
 
-    for unused, t in self.database._trip_db.items():
-      self.assertIn(t.trip_id, trips.keys())
+    for t in self.database._trip_db.values():
+      assert t.trip_id in trips
       data = trips[t.trip_id]
 
-      self.assertEqual(t.direction_id, data['direction_id'])
-      self.assertEqual(t.trip_headsign, data['trip_headsign'])
-      self.assertIsNotNone(t.route)
-      self.assertEqual(t.route['route_short_name'], data['route_short_name'])
-      self.assertIsNotNone(t.stop_times)
-      self.assertEqual(len(t.stop_times), data['num_stop_times'])
+      assert t.direction_id == data['direction_id']
+      assert t.trip_headsign == data['trip_headsign']
+      assert t.route is not None
+      assert t.route['route_short_name'] == data['route_short_name']
+      assert t.stop_times is not None
+      assert len(t.stop_times) == data['num_stop_times']
 
   def testLoadAll(self):
-    database = gtfs_data.database.Database(GTFS_DATA, [])
+    database = Database(GTFS_DATA, [])
     database.Load()
-    self.assertEqual(database._trip_db.keys(), set(['1167', '1168', '1169', 'ONIGHT']))
+    assert database._trip_db.keys() == {'1167', '1168', '1169', 'ONIGHT'}
 
   def testGetScheduledFor(self):
-    database = gtfs_data.database.Database(GTFS_DATA, [])
+    database = Database(GTFS_DATA, [])
     database.Load()
 
     stop_id = INTERESTING_STOPS[0]
@@ -90,9 +92,9 @@ class TestDatabase(unittest.TestCase):
 
     # Note: GetScheduledFor sorts on arrival time; so the order here is
     # predictable.
-    self.assertEqual(len(resp), 2)
-    self.assertEqual(resp[0].trip_id, '1167')
-    self.assertEqual(resp[1].trip_id, '1169')
+    assert len(resp) == 2
+    assert resp[0].trip_id == '1167'
+    assert resp[1].trip_id == '1169'
 
     # This trip's schedule has no exceptions; ensure we don't error
     # out loading it. Note: the stop id below is not in INTERESTING_STOPS
@@ -101,12 +103,12 @@ class TestDatabase(unittest.TestCase):
     start = datetime.datetime(2020, 11, 19, 20, 00, 00)
     stop = datetime.datetime(2020, 11, 19, 21, 00, 00)
     resp = database.GetScheduledFor(stop_id, start, stop)
-    self.assertEqual(len(resp), 1)
-    self.assertEqual(resp[0].trip_id, '1168')
+    assert len(resp) == 1
+    assert resp[0].trip_id == '1168'
 
   def testGetScheduledForOvernightRoutes(self):
     """Test schedule generation for routes that span days"""
-    database = gtfs_data.database.Database(GTFS_DATA, [])
+    database = Database(GTFS_DATA, [])
     database.Load()
 
     stop_id = 'ONIGHT-STOP2'
@@ -114,21 +116,21 @@ class TestDatabase(unittest.TestCase):
     start = datetime.datetime(2020, 11, 19, 23, 00, 00)
     stop = datetime.datetime(2020, 11, 20, 2, 00, 00)
     resp = database.GetScheduledFor(stop_id, start, stop)
-    self.assertEqual(len(resp), 1)
-    self.assertEqual(resp[0].trip_id, 'ONIGHT')
+    assert len(resp) == 1
+    assert resp[0].trip_id == 'ONIGHT'
 
     start = datetime.datetime(2020, 11, 20, 0, 00, 00)
     stop = datetime.datetime(2020, 11, 20, 2, 00, 00)
     resp = database.GetScheduledFor(stop_id, start, stop)
-    self.assertEqual(len(resp), 1)
-    self.assertEqual(resp[0].trip_id, 'ONIGHT')
+    assert len(resp) == 1
+    assert resp[0].trip_id == 'ONIGHT'
 
     start = datetime.datetime(2020, 11, 18, 23, 00, 00)
     stop = datetime.datetime(2020, 11, 20, 2, 00, 00)
     resp = database.GetScheduledFor(stop_id, start, stop)
-    self.assertEqual(len(resp), 2)
-    self.assertEqual(resp[0].trip_id, 'ONIGHT')
-    self.assertEqual(resp[0].trip_id, 'ONIGHT')
+    assert len(resp) == 2
+    assert resp[0].trip_id == 'ONIGHT'
+    assert resp[0].trip_id == 'ONIGHT'
 
   def testGetScheduledForInvalids(self):
     self.database.Load()
@@ -138,11 +140,11 @@ class TestDatabase(unittest.TestCase):
 
     # Invalid stop.
     resp = self.database.GetScheduledFor("foo", start, stop)
-    self.assertEqual(len(resp), 0)
+    assert len(resp) == 0
 
     # Invalid times.
-    self.assertRaises(ValueError, self.database.GetScheduledFor,
-      INTERESTING_STOPS[0], stop, start)
+    with pytest.raises(ValueError, match="start must come before end"):
+      self.database.GetScheduledFor(INTERESTING_STOPS[0], stop, start)
 
   def testGetScheduledForExceptions(self):
     self.database.Load()
@@ -152,59 +154,58 @@ class TestDatabase(unittest.TestCase):
     start = datetime.datetime(2020, 11, 26, 7, 30, 00)
     stop = datetime.datetime(2020, 11, 26, 8, 30, 00)
     resp = self.database.GetScheduledFor(stop_id, start, stop)
-    self.assertEqual(len(resp), 0)
+    assert len(resp) == 0
 
     # We have an exception for this date ("added service").
     stop_id = INTERESTING_STOPS[0]
     start = datetime.datetime(2020, 11, 27, 7, 30, 00)
     stop = datetime.datetime(2020, 11, 27, 8, 30, 00)
     resp = self.database.GetScheduledFor(stop_id, start, stop)
-    self.assertEqual(len(resp), 2)
+    assert len(resp) == 2
 
   def testIsValidServiceDay(self):
-    database = gtfs_data.database.Database(GTFS_DATA, [])
+    database = Database(GTFS_DATA, [])
     database.Load()
 
     # The exceptions only apply to trips 1167 and 1169. Trip 1168 has no exceptions
     # but we should check to make sure it still behaves normally.
     removed_service_date = datetime.date(2020, 11, 26)
-    self.assertFalse(database._IsValidServiceDay(removed_service_date, '1167'))
-    self.assertFalse(database._IsValidServiceDay(removed_service_date, '1169'))
-    self.assertTrue(database._IsValidServiceDay(removed_service_date, '1168'))
+    assert not database._IsValidServiceDay(removed_service_date, '1167')
+    assert not database._IsValidServiceDay(removed_service_date, '1169')
+    assert database._IsValidServiceDay(removed_service_date, '1168')
 
     added_service_date = datetime.date(2020, 11, 27)
-    self.assertTrue(database._IsValidServiceDay(added_service_date, '1167'))
-    self.assertTrue(database._IsValidServiceDay(added_service_date, '1169'))
-    self.assertTrue(database._IsValidServiceDay(added_service_date, '1168'))
+    assert database._IsValidServiceDay(added_service_date, '1167')
+    assert database._IsValidServiceDay(added_service_date, '1169')
+    assert database._IsValidServiceDay(added_service_date, '1168')
 
     normal_service_date  = datetime.date(2020, 11, 19)
-    self.assertTrue(database._IsValidServiceDay(normal_service_date, '1167'))
-    self.assertTrue(database._IsValidServiceDay(normal_service_date, '1169'))
-    self.assertTrue(database._IsValidServiceDay(normal_service_date, '1168'))
+    assert database._IsValidServiceDay(normal_service_date, '1167')
+    assert database._IsValidServiceDay(normal_service_date, '1169')
+    assert database._IsValidServiceDay(normal_service_date, '1168')
 
     normal_no_service_date = datetime.date(2020, 11, 28)
-    self.assertFalse(database._IsValidServiceDay(normal_no_service_date, '1167'))
-    self.assertFalse(database._IsValidServiceDay(normal_no_service_date, '1169'))
-    self.assertFalse(database._IsValidServiceDay(normal_no_service_date, '1168'))
+    assert not database._IsValidServiceDay(normal_no_service_date, '1167')
+    assert not database._IsValidServiceDay(normal_no_service_date, '1169')
+    assert not database._IsValidServiceDay(normal_no_service_date, '1168')
 
     # 1167 and 1169 are Thursday only, 1168 is M-F -- so lets use 1168
     # Valid dates for the schedule are 2020-11-04 to 2021-02-25
     before_start_date = datetime.date(2020, 11, 3)
-    self.assertFalse(database._IsValidServiceDay(before_start_date, '1168'))
+    assert not database._IsValidServiceDay(before_start_date, '1168')
 
     start_date = datetime.date(2020, 11, 4)
-    self.assertTrue(database._IsValidServiceDay(start_date, '1168'))
+    assert database._IsValidServiceDay(start_date, '1168')
 
     end_date = datetime.date(2021, 2, 25)
-    self.assertTrue(database._IsValidServiceDay(end_date, '1168'))
+    assert database._IsValidServiceDay(end_date, '1168')
 
     after_end_date = datetime.date(2020, 2, 26)
-    self.assertFalse(database._IsValidServiceDay(after_end_date, '1168'))
+    assert not database._IsValidServiceDay(after_end_date, '1168')
 
 
   def testNumberOfDays(self):
-    self.assertEqual(len(gtfs_data.database.CALENDAR_DAYS), 7)
+    assert len(CALENDAR_DAYS) == 7
 
 if __name__ == '__main__':
-    multiprocessing.set_start_method("spawn")
     unittest.main()

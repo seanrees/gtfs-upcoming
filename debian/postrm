@@ -1,9 +1,0 @@
-#!/bin/sh
-
-set -e
-
-case "$1" in
-    purge)
-        rm -fr /var/cache/gtfs
-        rm -fr /etc/gtfs-upcoming
-esac
