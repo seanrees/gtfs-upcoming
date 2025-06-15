@@ -4,6 +4,7 @@ import concurrent.futures
 import csv
 import io
 import logging
+import multiprocessing
 import threading
 from collections.abc import Set as AbstractSet
 
@@ -18,6 +19,13 @@ BROKEN_CHARACTER = '\ufeff'
 MaxThreads = 4
 MaxRowsPerChunk = 100000
 
+# 'thread' means use a ThreadPoolExecutor for parallel CSV loading. This tends to
+# get contended on the GIL, but won't trigger DeprecationWarnings for os.fork().
+# 'spawn' means to use a ProcessPoolExecutor, which will run considerably faster.
+# In practice, this only matters on very small hardware (e.g; older Raspberry Pis)
+# where the speedup (roughly number of cores as a multiple) will make any difference.
+MultiprocessModel = 'thread'
+
 class BufferedExecutor:
   """Creates and wraps a ProcessPoolExecutor to limit the number of futures in flight.
 
@@ -29,8 +37,12 @@ class BufferedExecutor:
   input file; if we create futures much faster than we can process them, we will
   potentially overwhelm memory on a small system with lots of StringIOs.
   """
-  def __init__(self, max_workers:int=0):
-    self._pool = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
+  def __init__(self, max_workers:int=0, multiprocess_model:str='thread'):
+    if multiprocess_model == 'process':
+      self._pool = concurrent.futures.ProcessPoolExecutor(max_workers=max_workers, mp_context=multiprocessing.get_context('spawn'))
+    else:
+      self._pool = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
+
     self._sem = threading.Semaphore(value=max_workers*2-1)
 
   def submit(self, *args, **kwargs):
@@ -87,7 +99,7 @@ def Load(filename: str, keep: dict[str, AbstractSet[str]] | None = None) -> list
     FileNotFoundError if filename isn't present.
   """
   keep = keep or {}
-  pool = BufferedExecutor(max_workers=MaxThreads)
+  pool = BufferedExecutor(max_workers=MaxThreads, multiprocess_model=MultiprocessModel)
   futures = []
 
   # We will read MaxRowsPerChunk into a StringIO, then pass it to a worker

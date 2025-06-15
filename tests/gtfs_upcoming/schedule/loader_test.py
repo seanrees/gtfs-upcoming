@@ -1,4 +1,3 @@
-import multiprocessing
 import unittest
 
 from gtfs_upcoming.schedule import loader
