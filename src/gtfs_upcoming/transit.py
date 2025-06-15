@@ -64,10 +64,13 @@ def now() -> datetime.datetime:
 def parseTime(t: str) -> datetime.datetime:
   """Converts HH:MM:SS to a datetime.datetime"""
   base_date = now().date()
-  if t.startswith('24:'):
-    t = t.replace('24:', '00:')
-    base_date += datetime.timedelta(days=1)
-  return datetime.datetime.combine(base_date, datetime.datetime.strptime(t, '%H:%M:%S').time())
+
+  hour, minutes, seconds = (int(x) for x in t.split(':', 3))
+  if hour >= 24:
+    base_date += datetime.timedelta(days=int(hour/24))
+    hour %= 24
+
+  return datetime.datetime.combine(base_date, datetime.time(hour, minutes, seconds))
 
 
 def delta_seconds(now: datetime.datetime, then: datetime.datetime) -> float:

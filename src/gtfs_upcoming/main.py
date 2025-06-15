@@ -121,6 +121,7 @@ def real_main(argv: list[str]) -> None:
   parser.add_argument('--gtfs', help='GTFS definitions', default='google_transit_combined')
   parser.add_argument('--loader_max_threads', help='Max load threads', default=os.cpu_count())
   parser.add_argument('--loader_max_rows_per_chunk', help='Number of rows per threaded chunk', default=100000)
+  parser.add_argument('--loader_multiprocess_model', help='Multiprocessing model to use', choices=['thread', 'process'], default='thread')
   parser.add_argument('--provider', help='One of nta (Ireland) or vicroads (Victoria Australia)', default='nta')
   parser.add_argument('--log_level', help='Logging level (DEBUG, INFO, WARNING, ERROR) [default: %(default)s]', default='INFO')
 
@@ -155,9 +156,10 @@ def real_main(argv: list[str]) -> None:
 
   loader.MaxThreads = int(args.loader_max_threads)
   loader.MaxRowsPerChunk = int(args.loader_max_rows_per_chunk)
+  loader.MultiprocessModel = args.loader_multiprocess_model
 
-  logger.info('Configured loader with %d threads, %d rows per chunk',
-    loader.MaxThreads, loader.MaxRowsPerChunk)
+  logger.info('Configured loader with %d threads, %d rows per chunk, parallelisation via %s',
+    loader.MaxThreads, loader.MaxRowsPerChunk, loader.MultiprocessModel)
 
   logger.info('Loading GTFS data sources from "%s"', args.gtfs)
   if config.interesting_stops:

@@ -1,5 +1,4 @@
 import datetime
-import multiprocessing
 import unittest
 import unittest.mock
 
@@ -36,7 +35,23 @@ class TestTransit(unittest.TestCase):
 
   def testParseTime(self):
     now = transit.now()
+
+    # Same day
+    assert transit.parseTime("22:20:00").date() - now.date() == datetime.timedelta(days=0)
+
+    # +1 day
     assert transit.parseTime("24:20:00").date() - now.date() == datetime.timedelta(days=1)
+    assert transit.parseTime("27:20:00").date() - now.date() == datetime.timedelta(days=1)
+
+    # +2 days
+    assert transit.parseTime("48:20:00").date() - now.date() == datetime.timedelta(days=2)
+    assert transit.parseTime("49:20:00").date() - now.date() == datetime.timedelta(days=2)
+
+    # Test the hours
+    assert transit.parseTime("15:20:00").time().hour == 15
+    assert transit.parseTime("27:20:00").time().hour == 3
+    assert transit.parseTime("49:20:00").time().hour == 1
+
 
   def testDelta_Seconds(self):
     now = datetime.datetime(2023, 8, 21)
