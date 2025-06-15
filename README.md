@@ -4,40 +4,13 @@
 
 ## What
 
-This consumes a GTFS realtime feed and produces a list of upcoming
-buses (and trains, trams, etc.) for a given stops. This list is
-served via HTTP in JSON format at /upcoming.json.
-
-/upcoming.json will serve both live (currently operating) and scheduled services
-(from the GTFS data). Live data takes precedence over scheduled data for the same
-trip. If a stop is near an origin of a service, live data may not yet be
-available.
-
-This was developed against the Irish [NTA's GTFS-R feed](https://developer.nationaltransport.ie/api-details#api=gtfsr)
-and the [VicRoads Data Exchange GTFS-R feed](https://data-exchange.vicroads.vic.gov.au/api-details#api=vehicle-position-trip-update-opendata&operation=metro-bus-trip-updates).
-
-This is part of a personal project for an live upcoming transit display.
-The display previously relied on the now-deprecated SmartDublin RTPI service.
-
-## Usage
-
-```sh
-% gtfs-upcoming -- --help
-2025/06/12 15:59:48 [                 gtfs_upcoming.main 124634004029568]       INFO Starting up
-2025/06/12 15:59:48 [                 gtfs_upcoming.main 124634004029568]       INFO Reading "vicroads/metrotrain.ini"
-2025/06/12 15:59:48 [                 gtfs_upcoming.main 124634004029568]       INFO Configured loader with 16 threads, 100000 rows per chunk
-2025/06/12 15:59:48 [                 gtfs_upcoming.main 124634004029568]       INFO Loading GTFS data sources from "vicroads/2"
-2025/06/12 15:59:48 [                 gtfs_upcoming.main 124634004029568]       INFO Restricting data sources to 1 interesting stops
-2025/06/12 15:59:49 [                 gtfs_upcoming.main 124634004029568]       INFO Load complete.
-2025/06/12 15:59:49 [       gtfs_upcoming.realtime.fetch 124634004029568]       INFO VicRoads/PTV, env=metrotrain, url=https://data-exchange-api.vicroads.vic.gov.au/opendata/v1/gtfsr/metrotrain-tripupdates
-2025/06/12 15:59:49 [                 gtfs_upcoming.main 124634004029568]       INFO Starting HTTP server on port 6824
-```
-
-Then browse to http://localhost:6824/upcoming.json to see.
+This is a backend HTTP service that consumes a GTFS Schedule and GTFS Realtime
+feed, and produces a simple time-ordered list of upcoming services and when they're
+due.
 
 ### Sample Output
 
-This output is subject to change.
+This is from `/upcoming.json`:
 
 ```
 {
@@ -66,6 +39,27 @@ This output is subject to change.
    ]
 }
 ```
+
+This was developed against the Irish [NTA's GTFS-R feed](https://developer.nationaltransport.ie/api-details#api=gtfsr)
+and the [VicRoads Data Exchange GTFS-R feed](https://data-exchange.vicroads.vic.gov.au/api-details#api=vehicle-position-trip-update-opendata&operation=metro-bus-trip-updates).
+
+## Usage
+
+You will need GTFS Schedule data and configuration file first. See _Data and Configuration_ below for more.
+
+```sh
+% gtfs-upcoming -- --config vicroads/metrotrain.ini --env metrotrain --provider vicroads --gtfs vicroads/2 --port 6824
+2025/06/12 15:59:48 [                 gtfs_upcoming.main 124634004029568]       INFO Starting up
+2025/06/12 15:59:48 [                 gtfs_upcoming.main 124634004029568]       INFO Reading "vicroads/metrotrain.ini"
+2025/06/12 15:59:48 [                 gtfs_upcoming.main 124634004029568]       INFO Configured loader with 16 threads, 100000 rows per chunk
+2025/06/12 15:59:48 [                 gtfs_upcoming.main 124634004029568]       INFO Loading GTFS data sources from "vicroads/2"
+2025/06/12 15:59:48 [                 gtfs_upcoming.main 124634004029568]       INFO Restricting data sources to 1 interesting stops
+2025/06/12 15:59:49 [                 gtfs_upcoming.main 124634004029568]       INFO Load complete.
+2025/06/12 15:59:49 [       gtfs_upcoming.realtime.fetch 124634004029568]       INFO VicRoads/PTV, env=metrotrain, url=https://data-exchange-api.vicroads.vic.gov.au/opendata/v1/gtfsr/metrotrain-tripupdates
+2025/06/12 15:59:49 [                 gtfs_upcoming.main 124634004029568]       INFO Starting HTTP server on port 6824
+```
+
+Then browse to http://localhost:6824/upcoming.json to see.
 
 ### Endpoints
 
@@ -116,14 +110,19 @@ Example run:
 
 ### GTFS Data
 
-You will need the GTFS dataset (contains definitions for routes, stops,
+You will need the GTFS schedule dataset (contains definitions for routes, stops,
 stop times, and agencies) in order to interpret the realtime data
 correctly. This is available from your GTFS-R provider.
 
 For the Irish NTA, that is [here](https://www.transportforireland.ie/transitData/google_transit_combined.zip).
 For VicRoads/PTV, that is [here](https://data.ptv.vic.gov.au/downloads/gtfs.zip).
 
+These datasets can change, sometimes quite a bit, at unpredictable intervals. It's recommended
+to setup a regular refresh -- once a week has worked well for me.
+
 ### config.ini
+
+There is a sample config in `sample-config.ini`. 
 
 Server configuration is an INI file and has two sections:
 
@@ -152,3 +151,6 @@ versus ~400M for the entire GTFS database.
 [Upcoming]
   InterestingStopIds = 700000000229,700000000240
 ```
+
+If you are running on very small hardware with multiple cores, `--loader_multiprocess_model=process`
+will likely speed up GTFS database loading proportional to the number of cores you have.
