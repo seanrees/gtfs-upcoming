@@ -62,8 +62,9 @@ CALENDAR_SERVICE_NOT_AVAILABLE = "0"
 CALENDAR_EXCEPTION_SERVICE_ADDED = "1"
 CALENDAR_EXCEPTION_SERVICE_REMOVED = "2"
 
+TRACE_PREFIX = 'gtfs-upcoming.schedule.database.'
 
-tracer = trace.get_tracer("tracer.gtfs_data.database")
+tracer = trace.get_tracer("tracer.schedule.database")
 
 
 class Trip(NamedTuple):
@@ -74,6 +75,15 @@ class Trip(NamedTuple):
   route: dict[str, str]
   stop_times: list[dict[str, str]]
 
+
+class Route(NamedTuple):
+  route_id: str
+  short_name: str
+  long_name: str
+  route_type: str
+  inferred_headsign: str
+  inferred_direction_id: str
+  inferred_service_id: str
 
 class Database:
   """Provides an easy-to-query interface for the GTFS database.
@@ -95,13 +105,14 @@ class Database:
     self._load_all_stops = len(keep_stops) == 0
     self._stops_db : dict[str, list[dict[str, str]]] = {}
     self._trip_db : dict[str, Trip] = {}
+    self._route_db : dict[str, dict[str, str]]
     self._calendar_db : dict[str, dict[str, str]] = {}
     self._exceptions_db : dict[str, dict[datetime.date, str]] = {}
 
   @DATABASE_LOAD.time()
   def Load(self):
     self._stops_db = self._LoadStops()
-    self._trip_db = self._LoadTrips()
+    self._trip_db, self._route_db = self._LoadTrips()
     self._calendar_db = self._LoadCalendar()
     self._exceptions_db = self._LoadExceptions()
 
@@ -112,11 +123,10 @@ class Database:
     TRIPDB_REQUESTS.labels(ret is not None).inc()
     return ret
 
-  def _IsValidServiceDay(self, dt: datetime.date, trip_id: str) -> bool:
-    trip = self.GetTrip(trip_id)
-    day = CALENDAR_DAYS[dt.weekday()]
+  def GetRoute(self, route_id: str) -> Route:
+    return self._route_db.get(route_id, None)
 
-    trip = self.GetTrip(trip_id)
+  def _IsValidServiceDay(self, dt: datetime.date, trip: Trip) -> bool:
     service = self._calendar_db.get(trip.service_id, None)
     if not service:
       logger.error('service "%s" not found in database', trip.service_id)
@@ -127,6 +137,7 @@ class Database:
     if dt < start or dt > end:
       return False
 
+    day = CALENDAR_DAYS[dt.weekday()]
     exc = self._exceptions_db.get(trip.service_id, {}).get(dt)
     if service.get(day) == CALENDAR_SERVICE_NOT_AVAILABLE:
       return exc == CALENDAR_EXCEPTION_SERVICE_ADDED
@@ -161,6 +172,7 @@ class Database:
     end_service_date = end.date()
 
     possibility = collections.namedtuple('possibility', ['service_date', 'arrival_time'])
+    possibles_total = 0
 
     for s in stops:
       trip_id = s['trip_id']
@@ -191,12 +203,21 @@ class Database:
           arrival_time_str)
         continue
 
+      # These get reset every loop.
+      possibles_total += len(possibles)
+
       for p in possibles:
-        valid_day = self._IsValidServiceDay(p.service_date, trip_id)
+        trip = self.GetTrip(trip_id)
+        valid_day = self._IsValidServiceDay(p.service_date, trip)
         if valid_day and p.arrival_time >= start and p.arrival_time <= end:
-          ret.append(self.GetTrip(trip_id))
+          ret.append(trip)
 
     SCHEDULE_RESPONSE.observe(len(ret))
+    trace.get_current_span().set_attributes({
+      TRACE_PREFIX + 'stop_id': stop_id,
+      TRACE_PREFIX + 'returned': len(ret),
+      TRACE_PREFIX + 'possibles': possibles_total
+    })
 
     return ret
 
@@ -210,7 +231,7 @@ class Database:
 
     return self._Collect(tmp_stop_times, 'stop_id', multi=True)
 
-  def _LoadTrips(self) -> dict[str, Trip]:
+  def _LoadTrips(self) -> tuple[dict[str, Trip], dict[str, Route]]:
     trip_ids = set()
     for vals in self._stops_db.values():
       for stop in vals:
@@ -230,20 +251,29 @@ class Database:
       'trip_id')
 
     trip_db = {}
+    route_db = {}
     for trip_id, row in trips.items():
       route_id = row['route_id']
       if route_id not in routes:
-        logger.debug('Trip "%s" references unknown route_id "%s"', trip_id, route_id)
+        logger.debug('Trip "%s" references unknown route_id "%s" (ignoring)', trip_id, route_id)
+        continue
 
       st = stop_times.get(trip_id, None)
       if not st:
         logger.debug('Trip "%s" has no stop times', trip_id)
 
-      t = Trip(trip_id, row['trip_headsign'], row['direction_id'], row['service_id'],
-               routes.get(route_id, None), st)
+      route = routes[route_id]
+      if route_id not in route_db:
+        # Routes don't contain a headsign or direction -- so we reuse the first trip we see with that
+        # route id.
+        route_db[route_id] = Route(route_id, route['route_short_name'], route['route_long_name'], route['route_type'],
+                                         inferred_headsign=row['trip_headsign'], inferred_direction_id=row['direction_id'],
+                                         inferred_service_id=row['service_id'])
+
+      t = Trip(trip_id, row['trip_headsign'], row['direction_id'], row['service_id'], route_db[route_id], st)
       trip_db[trip_id] = t
 
-    return trip_db
+    return (trip_db, route_db)
 
   def _LoadCalendar(self) -> dict[str, dict[str, str]]:
     """Loads calendar.txt."""

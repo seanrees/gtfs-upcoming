@@ -10,6 +10,8 @@ from gtfs_upcoming import transit
 
 TEST_FEEDMESSAGE_ONE = 'testdata/gtfsv1-sample-onetrip.json'
 TEST_FEEDMESSAGE_TWO = 'testdata/gtfsv1-sample-twotrips.json'
+TEST_FEEDMESSAGE_CANCELED = 'testdata/gtfsv1-sample-canceled.json'
+TEST_FEEDMESSAGE_ADDED = 'testdata/gtfsv1-sample-added.json'
 INTERESTING_STOPS = ['8250DB003076']    # seq 30 for 1167, 25 for 1169
 GTFS_DATA = 'testdata/schedule'
 
@@ -96,6 +98,7 @@ class TestTransit(unittest.TestCase):
         # Scheduled arrival is 08:04:11, no delay.
         assert resp[0].route == '7'
         assert resp[0].dueTime == '08:04:11'
+        assert not resp[0].canceled
 
   def testGetScheduled(self):
     with unittest.mock.patch('gtfs_upcoming.transit.now') as mock_now:
@@ -138,6 +141,66 @@ class TestTransit(unittest.TestCase):
         assert resp[1].dueTime == '08:04:11'
         assert resp[1].source == 'SCHEDULE'
 
+  def testGetLiveWithCancel(self):
+    # Use only one trip; this means GetUpcoming will have to merge the live
+    # and schedule.
+    self.fetch_input = TEST_FEEDMESSAGE_CANCELED
+
+    with unittest.mock.patch('gtfs_upcoming.transit.now') as mock_now:
+        mock_now.return_value = datetime.datetime(2020, 11, 19, 7, 00, 0)
+
+        resp = self.transit.GetLive(INTERESTING_STOPS)
+        assert len(resp) == 2
+        assert resp[0].route == '7A'
+        assert resp[0].dueTime == '07:24:16'
+        assert resp[0].source == 'LIVE'
+        assert not resp[0].canceled
+        assert resp[1].route == '7'
+        assert resp[1].dueTime == '08:04:11'
+        assert resp[1].source == 'LIVE'
+        assert resp[1].canceled
+
+  def testGetUpcomingWithCancel(self):
+    # Use only one trip; this means GetUpcoming will have to merge the live
+    # and schedule.
+    self.fetch_input = TEST_FEEDMESSAGE_CANCELED
+
+    with unittest.mock.patch('gtfs_upcoming.transit.now') as mock_now:
+        mock_now.return_value = datetime.datetime(2020, 11, 19, 7, 00, 0)
+
+        resp = self.transit.GetUpcoming(INTERESTING_STOPS)
+        assert len(resp) == 1
+        assert resp[0].route == '7A'
+        assert resp[0].dueTime == '07:24:16'
+        assert resp[0].source == 'LIVE'
+        assert not resp[0].canceled
+
+  def testGetLiveWithAdded(self):
+    # Use only one trip; this means GetUpcoming will have to merge the live
+    # and schedule.
+    self.fetch_input = TEST_FEEDMESSAGE_ADDED
+
+    with unittest.mock.patch('gtfs_upcoming.transit.now') as mock_now:
+        mock_now.return_value = datetime.datetime(2020, 11, 19, 7, 00, 0)
+
+        resp = self.transit.GetLive(INTERESTING_STOPS)
+        assert len(resp) == 2
+        assert resp[0].route == '7A'
+        assert resp[0].dueTime == '07:24:16'
+        assert resp[0].source == 'LIVE'
+        assert not resp[0].canceled
+
+        assert resp[1].trip_id == 'AddedTrip'
+        assert resp[1].route == '7'
+
+        # A little hack here to avoid timezone shenaniganery. The translation processes use a mix of
+        # absolute UNIX times & H:M:S local-times (see the stop_times db). This makes this test
+        # sensitive to running outside the timezone of the GTFS Schedule data.
+        dep_time_in_test = 1605771000
+        dep_time_in_local_tz  = datetime.datetime.fromtimestamp(dep_time_in_test).strftime("%H:%M:%S")
+
+        assert resp[1].dueTime == dep_time_in_local_tz
+        assert resp[1].source == 'LIVE'
 
 if __name__ == '__main__':
     unittest.main()

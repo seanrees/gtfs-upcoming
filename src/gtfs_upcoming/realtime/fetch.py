@@ -3,6 +3,7 @@ import logging
 import urllib.request
 
 import prometheus_client  # type: ignore[import]
+from opentelemetry import trace
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,7 @@ class Fetcher(abc.ABC):
       RESPONSE_STATUS.labels(f.status).inc()
 
     RESPONSE_BYTES.observe(len(out))
+    trace.get_current_span().set_attribute('http.response.body.size', len(out))
     return out
 
 
