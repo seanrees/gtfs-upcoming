@@ -71,7 +71,7 @@ class TestDatabase(unittest.TestCase):
       assert t.direction_id == data['direction_id']
       assert t.trip_headsign == data['trip_headsign']
       assert t.route is not None
-      assert t.route['route_short_name'] == data['route_short_name']
+      assert t.route.short_name == data['route_short_name']
       assert t.stop_times is not None
       assert len(t.stop_times) == data['num_stop_times']
 
@@ -166,41 +166,46 @@ class TestDatabase(unittest.TestCase):
     database = Database(GTFS_DATA, [])
     database.Load()
 
+    t1167 = database.GetTrip('1167')
+    t1168 = database.GetTrip('1168')
+    t1169 = database.GetTrip('1169')
+
     # The exceptions only apply to trips 1167 and 1169. Trip 1168 has no exceptions
     # but we should check to make sure it still behaves normally.
     removed_service_date = datetime.date(2020, 11, 26)
-    assert not database._IsValidServiceDay(removed_service_date, '1167')
-    assert not database._IsValidServiceDay(removed_service_date, '1169')
-    assert database._IsValidServiceDay(removed_service_date, '1168')
+
+    assert not database._IsValidServiceDay(removed_service_date, t1167)
+    assert not database._IsValidServiceDay(removed_service_date, t1169)
+    assert database._IsValidServiceDay(removed_service_date, t1168)
 
     added_service_date = datetime.date(2020, 11, 27)
-    assert database._IsValidServiceDay(added_service_date, '1167')
-    assert database._IsValidServiceDay(added_service_date, '1169')
-    assert database._IsValidServiceDay(added_service_date, '1168')
+    assert database._IsValidServiceDay(added_service_date, t1167)
+    assert database._IsValidServiceDay(added_service_date, t1169)
+    assert database._IsValidServiceDay(added_service_date, t1168)
 
     normal_service_date  = datetime.date(2020, 11, 19)
-    assert database._IsValidServiceDay(normal_service_date, '1167')
-    assert database._IsValidServiceDay(normal_service_date, '1169')
-    assert database._IsValidServiceDay(normal_service_date, '1168')
+    assert database._IsValidServiceDay(normal_service_date, t1167)
+    assert database._IsValidServiceDay(normal_service_date, t1169)
+    assert database._IsValidServiceDay(normal_service_date, t1168)
 
     normal_no_service_date = datetime.date(2020, 11, 28)
-    assert not database._IsValidServiceDay(normal_no_service_date, '1167')
-    assert not database._IsValidServiceDay(normal_no_service_date, '1169')
-    assert not database._IsValidServiceDay(normal_no_service_date, '1168')
+    assert not database._IsValidServiceDay(normal_no_service_date, t1167)
+    assert not database._IsValidServiceDay(normal_no_service_date, t1169)
+    assert not database._IsValidServiceDay(normal_no_service_date, t1168)
 
     # 1167 and 1169 are Thursday only, 1168 is M-F -- so lets use 1168
     # Valid dates for the schedule are 2020-11-04 to 2021-02-25
     before_start_date = datetime.date(2020, 11, 3)
-    assert not database._IsValidServiceDay(before_start_date, '1168')
+    assert not database._IsValidServiceDay(before_start_date, t1168)
 
     start_date = datetime.date(2020, 11, 4)
-    assert database._IsValidServiceDay(start_date, '1168')
+    assert database._IsValidServiceDay(start_date, t1168)
 
     end_date = datetime.date(2021, 2, 25)
-    assert database._IsValidServiceDay(end_date, '1168')
+    assert database._IsValidServiceDay(end_date, t1168)
 
     after_end_date = datetime.date(2020, 2, 26)
-    assert not database._IsValidServiceDay(after_end_date, '1168')
+    assert not database._IsValidServiceDay(after_end_date, t1168)
 
 
   def testNumberOfDays(self):
