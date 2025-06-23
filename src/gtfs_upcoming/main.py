@@ -73,6 +73,7 @@ class TransitHandler:
     self._provider = provider
     self._env = env
 
+  @staticmethod
   def _add_tracing(fn):
     def w(self, *args):
       current_span = trace.get_current_span()
