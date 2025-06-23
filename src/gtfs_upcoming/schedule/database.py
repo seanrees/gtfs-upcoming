@@ -72,7 +72,7 @@ class Trip(NamedTuple):
   trip_headsign: str
   direction_id: str
   service_id: str
-  route: dict[str, str]
+  route: Route
   stop_times: list[dict[str, str]]
 
 
@@ -105,7 +105,7 @@ class Database:
     self._load_all_stops = len(keep_stops) == 0
     self._stops_db : dict[str, list[dict[str, str]]] = {}
     self._trip_db : dict[str, Trip] = {}
-    self._route_db : dict[str, dict[str, str]]
+    self._route_db : dict[str, Route] = {}
     self._calendar_db : dict[str, dict[str, str]] = {}
     self._exceptions_db : dict[str, dict[datetime.date, str]] = {}
 
@@ -123,7 +123,7 @@ class Database:
     TRIPDB_REQUESTS.labels(ret is not None).inc()
     return ret
 
-  def GetRoute(self, route_id: str) -> Route:
+  def GetRoute(self, route_id: str) -> Route | None:
     return self._route_db.get(route_id, None)
 
   def _IsValidServiceDay(self, dt: datetime.date, trip: Trip) -> bool:

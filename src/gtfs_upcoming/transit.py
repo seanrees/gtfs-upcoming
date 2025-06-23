@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime
 import logging
 from collections.abc import Callable
@@ -126,7 +128,7 @@ class Transit:
     ret.ParseFromString(raw)
     return ret
 
-  def _BuildTripFromUpdate(self, tu: gtfs_realtime_pb2.TripUpdate, interesting_stops: list[str]) -> schedule.database.Trip:
+  def _BuildTripFromUpdate(self, tu: gtfs_realtime_pb2.TripUpdate, interesting_stops: list[str]) -> schedule.database.Trip | None:
     trip_id = tu.trip.trip_id
 
     route = self._database.GetRoute(tu.trip.route_id)
@@ -177,14 +179,15 @@ class Transit:
       trips = self._database.GetScheduledFor(stop_id, start, end)
 
       for t in trips:
-        due = ''
+        due = None
 
         for s in t.stop_times:
           if s['stop_id'] == stop_id:
             due = parseTime(s['arrival_time'])
             break
 
-        ret.append(Upcoming.FromTrip(t, stop_id, 'SCHEDULE', due, now(), canceled=False, addedToSchedule=False))
+        if due:
+          ret.append(Upcoming.FromTrip(t, stop_id, 'SCHEDULE', due, now(), canceled=False, addedToSchedule=False))
 
     SCHEDULED_RETURNED.observe(len(ret))
     trace.get_current_span().set_attribute(TRACE_PREFIX + 'scheduled', len(ret))
