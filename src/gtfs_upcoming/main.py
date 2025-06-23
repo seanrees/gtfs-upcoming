@@ -11,18 +11,24 @@ import sys
 from typing import NamedTuple
 
 import prometheus_client  # type: ignore[import]
+from opentelemetry import trace
 
 from . import httpd, realtime, schedule, transit
+from .__about__ import __version__
 from .schedule import loader
 
 logger = logging.getLogger(__name__)
+tracer = trace.get_tracer("tracer.transit")
 
 
 # Metrics
 API_ENV = prometheus_client.Info(
   'gtfs_api_environment',
-  'NTA environment that gtfs-upcoming is bound')
+  'Transit environment that gtfs-upcoming is bound')
 
+BUILD_INFO  = prometheus_client.Info(
+  'gtfs_build_info',
+  'Build info for the app')
 
 class Configuration(NamedTuple):
   api_key_primary: str
@@ -61,10 +67,25 @@ def _read_config(filename: str) -> Configuration:
 
 
 class TransitHandler:
-  def __init__(self, transit: transit.Transit, stops: list[str]):
+  def __init__(self, transit: transit.Transit, stops: list[str], provider: str, env: str):
     self._transit = transit
     self._stops = stops
+    self._provider = provider
+    self._env = env
 
+  def _add_tracing(fn):
+    def w(self, *args):
+      current_span = trace.get_current_span()
+      current_span.set_attributes({
+        'gtfs-upcoming.provider': self._provider,
+        'gtfs-upcoming.environment': self._env,
+        'gtfs-upcoming.handler': fn.__name__,
+        'gtfs-upcoming.app.version': __version__
+      })
+      fn(self, *args)
+    return w
+
+  @_add_tracing
   def HandleUpcoming(self, req: httpd.RequestHandler) -> None:
     stops = req.params.get('stop', self._stops)
 
@@ -75,6 +96,7 @@ class TransitHandler:
       'upcoming': [d.Dict() for d in data]
     }))
 
+  @_add_tracing
   def HandleScheduled(self, req: httpd.RequestHandler) -> None:
     stops = req.params.get('stop', self._stops)
     data = self._transit.GetScheduled(stops)
@@ -85,6 +107,7 @@ class TransitHandler:
       'scheduled': [d.Dict() for d in data]
     }))
 
+  @_add_tracing
   def HandleLive(self, req: httpd.RequestHandler) -> None:
     stops = req.params.get('stop', self._stops)
     data = self._transit.GetLive(stops)
@@ -95,6 +118,7 @@ class TransitHandler:
       'live': [d.Dict() for d in data]
     }))
 
+  @_add_tracing
   def HandleDebug(self, req: httpd.RequestHandler) -> None:
     start = datetime.datetime.now()
     pb = self._transit.LoadFromAPI()
@@ -138,7 +162,7 @@ def real_main(argv: list[str]) -> None:
       datefmt='%Y/%m/%d %H:%M:%S',
       level=level)
 
-  logger.info('Starting up')
+  logger.info('Starting up gtfs-upcoming v%s', __version__)
 
   # We run Prometheus in a separate internal server. This is in case the main
   # serving webserver locks/crashes, we will retain metrics insight.
@@ -149,6 +173,8 @@ def real_main(argv: list[str]) -> None:
     'provider': args.provider,
     'env': args.env
   })
+
+  BUILD_INFO.info({'version': __version__})
 
   config = _read_config(args.config)
   if not config:
@@ -184,7 +210,7 @@ def real_main(argv: list[str]) -> None:
   port = int(args.port)
   logger.info("Starting HTTP server on port %d", port)
   http = httpd.HTTPServer(port)
-  handler = TransitHandler(t, config.interesting_stops)
+  handler = TransitHandler(t, config.interesting_stops, args.provider, args.env)
   http.Register('/upcoming.json', handler.HandleUpcoming)
   http.Register('/scheduled.json', handler.HandleScheduled)
   http.Register('/live.json', handler.HandleLive)
