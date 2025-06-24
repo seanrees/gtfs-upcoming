@@ -83,8 +83,29 @@ exclude_lines = [
 ]
 [tool.hatch.envs.test]
 dependencies = [
-  "pytest"
+  "pytest",
+  "pytest-cov",
+  "coverage[toml]"
 ]
+
+[tool.hatch.envs.test.scripts]
+test = "pytest {args:tests}"
+test-cov = "pytest --cov=gtfs_upcoming --cov-report=term-missing {args:tests}"
+test-cov-html = "pytest --cov=gtfs_upcoming --cov-report=html --cov-report=term-missing {args:tests}"
+
+[tool.hatch.envs.coverage]
+dependencies = [
+  "coverage[toml]",
+  "pytest-cov"
+]
+
+[tool.hatch.envs.coverage.scripts]
+run = "coverage run -m pytest {args:tests}"
+report = "coverage report"
+html = "coverage html"
+xml = "coverage xml"
+erase = "coverage erase"
+combine = "coverage combine"
 
 [tool.ruff.lint]
 # DTZ001,5,7: we want to use naive datetimes because the GTFS schedule is in local time.
