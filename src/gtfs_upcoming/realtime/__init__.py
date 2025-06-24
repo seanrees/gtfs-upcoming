@@ -1,3 +1,3 @@
 from . import fetch
 
-MakeFetcher = fetch.MakeFetcher
+make_fetcher = fetch.make_fetcher
