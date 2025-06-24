@@ -12,6 +12,9 @@ TEST_FEEDMESSAGE_ONE = 'testdata/gtfsv1-sample-onetrip.json'
 TEST_FEEDMESSAGE_TWO = 'testdata/gtfsv1-sample-twotrips.json'
 TEST_FEEDMESSAGE_CANCELED = 'testdata/gtfsv1-sample-canceled.json'
 TEST_FEEDMESSAGE_ADDED = 'testdata/gtfsv1-sample-added.json'
+TEST_FEEDMESSAGE_UNEXPECTED_RELATIONSHIPS = 'testdata/gtfsv1-sample-unexpected-relationships.json'
+TEST_FEEDMESSAGE_MISSING_TRIP_UPDATE = 'testdata/gtfsv1-sample-missing-trip-update.json'
+TEST_FEEDMESSAGE_UNKNOWN_TRIP = 'testdata/gtfsv1-sample-unknown-trip.json'
 INTERESTING_STOPS = ['8250DB003076']    # seq 30 for 1167, 25 for 1169
 GTFS_DATA = 'testdata/schedule'
 
@@ -205,6 +208,73 @@ class TestTransit(unittest.TestCase):
 
         assert resp[1].due_time == dep_time_in_local_tz
         assert resp[1].source == 'LIVE'
+
+  def test_get_live_unexpected_schedule_relationships(self):
+    """Test handling of unexpected schedule relationship values."""
+    
+    # Use the test data file with unexpected schedule relationships
+    self.fetch_input = TEST_FEEDMESSAGE_UNEXPECTED_RELATIONSHIPS
+    
+    with unittest.mock.patch('gtfs_upcoming.transit.now') as mock_now:
+        mock_now.return_value = datetime.datetime(2020, 8, 20, 7, 0, 0)
+        
+        # Capture log messages to verify warnings are logged
+        with self.assertLogs('gtfs_upcoming.transit', level='WARNING') as log_context:
+            resp = self.transit.get_live(INTERESTING_STOPS)
+        
+        # Should only return the valid trip, not the ones with unexpected relationships
+        assert len(resp) == 1
+        assert resp[0].trip_id == "1167"
+        assert resp[0].route == "7A"
+        assert resp[0].due_time == "07:24:16"  # Original time + 4 minute delay
+        assert resp[0].source == "LIVE"
+        assert not resp[0].canceled
+        
+        # Verify that warnings were logged for unexpected relationships
+        warning_messages = [record.message for record in log_context.records]
+        assert len(warning_messages) == 2
+        
+        # Check that both unexpected relationships were logged
+        unexpected_warnings = [msg for msg in warning_messages if "unexpected schedule_relationship" in msg]
+        assert len(unexpected_warnings) == 2
+        
+        # Verify the specific trip IDs were mentioned in warnings
+        assert any("1167" in msg for msg in unexpected_warnings)
+        assert any("1169" in msg for msg in unexpected_warnings)
+        
+        # Verify the specific relationship names were mentioned
+        assert any("UNSCHEDULED" in msg for msg in unexpected_warnings)
+        assert any("REPLACEMENT" in msg for msg in unexpected_warnings)
+
+  def test_get_live_missing_trip_update_field(self):
+    """Test handling of entities without trip_update field."""
+    
+    # Use the test data file with missing trip_update field
+    self.fetch_input = TEST_FEEDMESSAGE_MISSING_TRIP_UPDATE
+    
+    with unittest.mock.patch('gtfs_upcoming.transit.now') as mock_now:
+        mock_now.return_value = datetime.datetime(2020, 8, 20, 7, 0, 0)
+        
+        resp = self.transit.get_live(INTERESTING_STOPS)
+        
+        # Should only return the valid trip
+        assert len(resp) == 1
+        assert resp[0].trip_id == "1167"
+
+  def test_get_live_trip_not_in_database(self):
+    """Test handling of trips that don't exist in the schedule database."""
+    
+    # Use the test data file with unknown trip
+    self.fetch_input = TEST_FEEDMESSAGE_UNKNOWN_TRIP
+    
+    with unittest.mock.patch('gtfs_upcoming.transit.now') as mock_now:
+        mock_now.return_value = datetime.datetime(2020, 8, 20, 7, 0, 0)
+        
+        resp = self.transit.get_live(INTERESTING_STOPS)
+        
+        # Should only return the valid trip, unknown trip should be ignored
+        assert len(resp) == 1
+        assert resp[0].trip_id == "1167"
 
 if __name__ == '__main__':
     unittest.main()
