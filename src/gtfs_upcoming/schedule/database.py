@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import collections
 import datetime
+import functools
 import logging
 import os
 from collections.abc import Set as AbstractSet
@@ -19,11 +20,6 @@ logger = logging.getLogger(__name__)
 TRIPDB = prometheus_client.Summary(
     'gtfs_tripdb_loaded_trips',
     'Trips loaded in the database')
-
-TRIPDB_REQUESTS = prometheus_client.Counter(
-    'gtfs_tripdb_requests_total',
-    'Requests to the Trip DB',
-    ['found'])
 
 DATABASE_LOAD = prometheus_client.Summary(
     'gtfs_database_load_seconds',
@@ -104,7 +100,7 @@ class Database:
         self._data_dir = data_dir
         self._keep_stops = keep_stops
         self._load_all_stops = len(keep_stops) == 0
-        self._stops_db: dict[str, list[dict[str, str]]] = {}
+        self._stops_db: dict[str, list[dict[str, Any]]] = {}
         self._trip_db: dict[str, Trip] = {}
         self._route_db: dict[str, Route] = {}
         self._calendar_db: dict[str, dict[str, str]] = {}
@@ -119,18 +115,17 @@ class Database:
 
         TRIPDB.observe(len(self._trip_db.keys()))
 
-    def get_trip(self, trip_id: str):
-        ret = self._trip_db.get(trip_id, None)
-        TRIPDB_REQUESTS.labels(ret is not None).inc()
-        return ret
+    def get_trip(self, trip_id: str) -> Trip | None:
+        return self._trip_db.get(trip_id, None)
 
     def get_route(self, route_id: str) -> Route | None:
         return self._route_db.get(route_id, None)
 
-    def _is_valid_service_day(self, dt: datetime.date, trip: Trip) -> bool:
-        service = self._calendar_db.get(trip.service_id, None)
+    @functools.cache
+    def _is_valid_service_day(self, dt: datetime.date, service_id: str) -> bool:
+        service = self._calendar_db.get(service_id, None)
         if not service:
-            logger.error('service "%s" not found in database', trip.service_id)
+            logger.error('service "%s" not found in database', service_id)
             return False
 
         start = service['start_date']
@@ -139,11 +134,14 @@ class Database:
             return False
 
         day = CALENDAR_DAYS[dt.weekday()]
-        exc = self._exceptions_db.get(trip.service_id, {}).get(dt)
+        exc = self._exceptions_db.get(service_id, {}).get(dt)
         if service.get(day) == CALENDAR_SERVICE_NOT_AVAILABLE:
             return exc == CALENDAR_EXCEPTION_SERVICE_ADDED
 
         return exc != CALENDAR_EXCEPTION_SERVICE_REMOVED
+
+    def is_valid_service_day(self, dt: datetime.date, trip: Trip) -> bool:
+        return self._is_valid_service_day(dt, trip.service_id)
 
     @tracer.start_as_current_span("GetScheduledFor")
     def get_scheduled_for(self, stop_id: str, start: datetime.datetime,
@@ -161,6 +159,7 @@ class Database:
         ret: list[Trip] = []
 
         stops = self._stops_db.get(stop_id, None)
+
         if not stops:
             logger.error('stop "%s" not found in database', stop_id)
             return ret
@@ -170,53 +169,41 @@ class Database:
             raise ValueError(msg)
 
         one_day = datetime.timedelta(days=1)
+
         start_service_date = start.date() - one_day
         end_service_date = end.date()
 
         possibility = collections.namedtuple('possibility',
                                            ['service_date', 'arrival_time'])
+
         possibles_total = 0
 
         for s in stops:
             trip_id = s['trip_id']
-            arrival_time_str = s['arrival_time']
-
-            try:
-                # GTFS's data format allows for hours >24 to indicate times the
-                # next day. E.g; 25:00 = 0100+1; this is useful if a service starts
-                # on one day and carries through to the next.
-                hour, minute, second = (int(x) for x in arrival_time_str.split(':'))
-                delta = datetime.timedelta(days=0)
-
-                if hour >= 24:
-                    delta = one_day
-                    hour -= 24
-
-                arrival_time_obj = datetime.time(hour=hour, minute=minute,
-                                               second=second)
-
-                possibles: list[possibility] = []
-                service_date = start_service_date
-                while service_date <= end_service_date:
-                    arrival_time = (datetime.datetime.combine(service_date,
-                                                             arrival_time_obj) +
-                                   delta)
-                    possibles.append(possibility(service_date, arrival_time))
-
-                    service_date += one_day
-            except ValueError:
-                logger.exception('invalid format for arrival_time_str "%s"',
-                               arrival_time_str)
+            trip = self._trip_db.get(trip_id, None)
+            if trip is None:
                 continue
 
-            # These get reset every loop.
+            arrival_time_obj = s['arrival_time_time']
+            delta = s['arrival_time_delta']
+
+            possibles: list[possibility] = []
+
+            # We need to keep service_date and arrival_time separate because
+            # the service_date may be a different actual day (e.g; if the arrival_time is in
+            # hour 25).
+            service_date = start_service_date
+            arrival_time = datetime.datetime.combine(service_date, arrival_time_obj) + delta
+
+            while service_date <= end_service_date:
+                possibles.append(possibility(service_date, arrival_time))
+                service_date += one_day
+                arrival_time += one_day
+
             possibles_total += len(possibles)
 
             for p in possibles:
-                trip = self.get_trip(trip_id)
-                if trip is None:
-                    continue
-                valid_day = self._is_valid_service_day(p.service_date, trip)
+                valid_day = self.is_valid_service_day(p.service_date, trip)
                 if (valid_day and p.arrival_time >= start and
                     p.arrival_time <= end):
                     ret.append(trip)
@@ -230,18 +217,42 @@ class Database:
 
         return ret
 
-    def _load_stops(self) -> dict[str, list[dict[str, str]]]:
+    def _load_stops(self) -> dict[str, list[dict[str, Any]]]:
         # First we need to extract the interesting trips and sequences.
         if self._load_all_stops:
             tmp_stop_times = self._load('stop_times.txt') or []
         else:
             tmp_stop_times = self._load('stop_times.txt', {'stop_id': set(self._keep_stops)}) or []
 
+
+        # GTFS's data format allows for hours >24 to indicate times the
+        # next day. E.g; 25:00 = 0100+1; this is useful if a service starts
+        # on one day and carries through to the next
+        same_day = datetime.timedelta(days=0)
+        one_day = datetime.timedelta(days=1)
+        def _make_time(t: str) -> tuple[datetime.time, datetime.timedelta]:
+            hour, minute, second = (int(x) for x in t.split(':'))
+            delta = datetime.timedelta(days=0)
+
+            if hour < 24:
+                delta = same_day
+            else:
+                delta = one_day
+                hour -= 24
+
+            return (datetime.time(hour=hour, minute=minute, second=second), delta)
+
         result = self._collect(tmp_stop_times, 'stop_id', multi=True)
-        if not isinstance(result, dict):
-            result = {}
-        result = dict(result)
-        return {k: v if isinstance(v, list) else [v] for k, v in result.items()}
+        if result:
+            for times in result.values():
+                for t in times:
+                    for possible_key in ('arrival_time', 'departure_time'):
+                        if possible_key in t:
+                            dt, delta = _make_time(t[possible_key])
+                            t[possible_key + '_time'] = dt
+                            t[possible_key + '_delta'] = delta
+
+        return result
 
     def _load_trips(self) -> tuple[dict[str, Trip], dict[str, Route]]:
         trip_ids = set()

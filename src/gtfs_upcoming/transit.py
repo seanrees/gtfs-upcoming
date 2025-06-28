@@ -90,8 +90,8 @@ class Upcoming(NamedTuple):
     headsign: str
     direction: str
     stop_id: str
-    due_time: str
-    due_in_seconds: float
+    dueTime: str
+    dueInSeconds: float
     source: str
     canceled: bool
     added_to_schedule: bool
@@ -111,8 +111,8 @@ class Upcoming(NamedTuple):
             headsign=trip.trip_headsign,
             direction=trip.direction_id,
             stop_id=stop_id,
-            due_time=due.time().strftime('%H:%M:%S'),
-            due_in_seconds=delta_seconds(due, current_datetime),
+            dueTime=due.time().strftime('%H:%M:%S'),
+            dueInSeconds=delta_seconds(due, current_datetime),
             source=source,
             canceled=canceled,
             added_to_schedule=added_to_schedule)
@@ -126,8 +126,11 @@ class Transit:
     @tracer.start_as_current_span("LoadFromAPI")
     def load_from_api(self) -> gtfs_realtime_pb2.FeedMessage:
         raw = self._fetch_fn()
+        trace.get_current_span().add_event("fetch_complete")
         ret = gtfs_realtime_pb2.FeedMessage()
         ret.ParseFromString(raw)
+        trace.get_current_span().add_event("parse_complete")
+
         return ret
 
     def _build_trip_from_update(self, tu: gtfs_realtime_pb2.TripUpdate,
@@ -202,12 +205,14 @@ class Transit:
         SCHEDULED_RETURNED.observe(len(ret))
         trace.get_current_span().set_attribute(TRACE_PREFIX + 'scheduled', len(ret))
 
-        return sorted(ret, key=lambda x: x.due_in_seconds)
+        return sorted(ret, key=lambda x: x.dueInSeconds)
 
     @LIVE_TIME.time()
     @tracer.start_as_current_span("GetLive")
     def get_live(self, interesting_stops: list[str]) -> list[Upcoming]:
         resp = self.load_from_api()
+        trace.get_current_span().add_event("load_from_api complete")
+
         ret = []
         early = 0
         delayed = 0
@@ -343,4 +348,4 @@ class Transit:
 
         # Remove canceled trips, sort ascending by due_in_seconds.
         return sorted(filter(lambda t: not t.canceled, ret),
-                     key=lambda x: x.due_in_seconds)
+                     key=lambda x: x.dueInSeconds)

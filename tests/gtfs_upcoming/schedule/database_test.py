@@ -174,38 +174,38 @@ class TestDatabase(unittest.TestCase):
         # but we should check to make sure it still behaves normally.
         removed_service_date = datetime.date(2020, 11, 26)
 
-        assert not database._is_valid_service_day(removed_service_date, t1167)
-        assert not database._is_valid_service_day(removed_service_date, t1169)
-        assert database._is_valid_service_day(removed_service_date, t1168)
+        assert not database.is_valid_service_day(removed_service_date, t1167)
+        assert not database.is_valid_service_day(removed_service_date, t1169)
+        assert database.is_valid_service_day(removed_service_date, t1168)
 
         added_service_date = datetime.date(2020, 11, 27)
-        assert database._is_valid_service_day(added_service_date, t1167)
-        assert database._is_valid_service_day(added_service_date, t1169)
-        assert database._is_valid_service_day(added_service_date, t1168)
+        assert database.is_valid_service_day(added_service_date, t1167)
+        assert database.is_valid_service_day(added_service_date, t1169)
+        assert database.is_valid_service_day(added_service_date, t1168)
 
         normal_service_date = datetime.date(2020, 11, 19)
-        assert database._is_valid_service_day(normal_service_date, t1167)
-        assert database._is_valid_service_day(normal_service_date, t1169)
-        assert database._is_valid_service_day(normal_service_date, t1168)
+        assert database.is_valid_service_day(normal_service_date, t1167)
+        assert database.is_valid_service_day(normal_service_date, t1169)
+        assert database.is_valid_service_day(normal_service_date, t1168)
 
         normal_no_service_date = datetime.date(2020, 11, 28)
-        assert not database._is_valid_service_day(normal_no_service_date, t1167)
-        assert not database._is_valid_service_day(normal_no_service_date, t1169)
-        assert not database._is_valid_service_day(normal_no_service_date, t1168)
+        assert not database.is_valid_service_day(normal_no_service_date, t1167)
+        assert not database.is_valid_service_day(normal_no_service_date, t1169)
+        assert not database.is_valid_service_day(normal_no_service_date, t1168)
 
         # 1167 and 1169 are Thursday only, 1168 is M-F -- so lets use 1168
         # Valid dates for the schedule are 2020-11-04 to 2021-02-25
         before_start_date = datetime.date(2020, 11, 3)
-        assert not database._is_valid_service_day(before_start_date, t1168)
+        assert not database.is_valid_service_day(before_start_date, t1168)
 
         start_date = datetime.date(2020, 11, 4)
-        assert database._is_valid_service_day(start_date, t1168)
+        assert database.is_valid_service_day(start_date, t1168)
 
         end_date = datetime.date(2021, 2, 25)
-        assert database._is_valid_service_day(end_date, t1168)
+        assert database.is_valid_service_day(end_date, t1168)
 
         after_end_date = datetime.date(2020, 2, 26)
-        assert not database._is_valid_service_day(after_end_date, t1168)
+        assert not database.is_valid_service_day(after_end_date, t1168)
 
     def test_number_of_days(self):
         assert len(CALENDAR_DAYS) == 7
