@@ -279,6 +279,14 @@ class Transit:
                                 # (https://developers.google.com/transit/gtfs-realtime/reference#message-feedentity)
                                 updated_arrival_time = datetime.datetime.fromtimestamp(
                                     stu.arrival.time)
+
+                        # Note to self: 2025-07-21:
+                        # PTV don't keep Live information, seemingly, past the first SKIPPED stop.
+                        # So if a service is _truncated_ (vs. just skipping stops), then it will
+                        # disappear from the live feed when it reaches the final non-skipped stop.
+                        skipped = gtfs_realtime_pb2.TripUpdate.StopTimeUpdate.ScheduleRelationship.SKIPPED
+                        if stu.stop_sequence == sequence and stu.schedule_relationship == skipped:
+                            canceled = True
                     else:
                         # We don't need to read anything past our stop.
                         break

@@ -86,6 +86,26 @@ class VicRoads(Fetcher):
         return urllib.request.Request(self.url, None, headers)  # noqa: S310
 
 
+class TransportVictoria(Fetcher):
+    BASE_URL = "https://api.opendata.transport.vic.gov.au/opendata/public-transport/gtfs/realtime/v1/"
+
+    METROBUS_URL = BASE_URL + "bus/trip-updates"
+    METROTRAIN_URL = BASE_URL + "metro/trip-updates"
+    YARRATRAMS_URL = BASE_URL + "tram/trip-updates"
+
+    def __init__(self, api_key: str, url: str):
+        self.api_key = api_key
+        self.url = url
+
+    def request(self):
+        headers = {
+            "Cache-Control": "no-cache",
+            "KeyID": self.api_key,
+            "User-Agent": "github.com/seanrees/gtfs-upcoming"  # endpoint doesn't like Python UA
+        }
+        return urllib.request.Request(self.url, None, headers)  # noqa: S310
+
+
 def make_fetcher(provider: str, env: str, api_key: str) -> Fetcher:
     if provider == "nta":
         url = IrelandNTA.TEST_URL
@@ -108,6 +128,20 @@ def make_fetcher(provider: str, env: str, api_key: str) -> Fetcher:
 
         logger.info("VicRoads/PTV, env=%s, url=%s", env, url)
         return VicRoads(api_key, url)
+
+    if provider == "transportvictoria":
+        if env == 'metrobus':
+            url = TransportVictoria.METROBUS_URL
+        elif env == 'metrotrain':
+            url = TransportVictoria.METROTRAIN_URL
+        elif env == 'tram':
+            url = TransportVictoria.YARRATRAMS_URL
+        else:
+            logger.error("Unknown Transport Victoria env %s", env)
+            return None
+
+        logger.info("Transport Victoria, env=%s, url=%s", env, url)
+        return TransportVictoria(api_key, url)
 
     logger.error("Unknown provider %s", provider)
 
