@@ -168,7 +168,7 @@ def real_main(argv: list[str]) -> None:
                        help='Multiprocessing model to use',
                        choices=['thread', 'process'], default='thread')
     parser.add_argument('--provider',
-                       help='One of nta (Ireland) or transportvic (Victoria Australia)',
+                       help='One of nta (Ireland) or transportvictoria (Victoria Australia)',
                        default='nta')
     parser.add_argument('--log_level',
                        help='Logging level (DEBUG, INFO, WARNING, ERROR) '
