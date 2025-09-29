@@ -41,21 +41,21 @@ This is from `/upcoming.json`:
 ```
 
 This was developed against the Irish [NTA's GTFS-R feed](https://developer.nationaltransport.ie/api-details#api=gtfsr)
-and the [VicRoads Data Exchange GTFS-R feed](https://data-exchange.vicroads.vic.gov.au/api-details#api=vehicle-position-trip-update-opendata&operation=metro-bus-trip-updates).
+and the [Transport Victoria GTFS-R feed](https://opendata.transport.vic.gov.au/dataset/gtfs-realtime).
 
 ## Usage
 
 You will need GTFS Schedule data and configuration file first. See _Data and Configuration_ below for more.
 
 ```sh
-% gtfs-upcoming -- --config vicroads/metrotrain.ini --env metrotrain --provider vicroads --gtfs vicroads/2 --port 6824
+% gtfs-upcoming -- --config transportvictoria/metrotrain.ini --env metrotrain --provider transportvictoria --gtfs transportvictoria/2 --port 6824
 2025/06/12 15:59:48 [                 gtfs_upcoming.main 124634004029568]       INFO Starting up
-2025/06/12 15:59:48 [                 gtfs_upcoming.main 124634004029568]       INFO Reading "vicroads/metrotrain.ini"
+2025/06/12 15:59:48 [                 gtfs_upcoming.main 124634004029568]       INFO Reading "transportvictoria/metrotrain.ini"
 2025/06/12 15:59:48 [                 gtfs_upcoming.main 124634004029568]       INFO Configured loader with 16 threads, 100000 rows per chunk
-2025/06/12 15:59:48 [                 gtfs_upcoming.main 124634004029568]       INFO Loading GTFS data sources from "vicroads/2"
+2025/06/12 15:59:48 [                 gtfs_upcoming.main 124634004029568]       INFO Loading GTFS data sources from "transportvictoria/2"
 2025/06/12 15:59:48 [                 gtfs_upcoming.main 124634004029568]       INFO Restricting data sources to 1 interesting stops
 2025/06/12 15:59:49 [                 gtfs_upcoming.main 124634004029568]       INFO Load complete.
-2025/06/12 15:59:49 [       gtfs_upcoming.realtime.fetch 124634004029568]       INFO VicRoads/PTV, env=metrotrain, url=https://data-exchange-api.vicroads.vic.gov.au/opendata/v1/gtfsr/metrotrain-tripupdates
+2025/06/12 15:59:49 [       gtfs_upcoming.realtime.fetch 124634004029568]       INFO Transport Victoria, env=metrotrain, url=https://api.opendata.transport.vic.gov.au/opendata/public-transport/gtfs/realtime/v1/metro/trip-updates
 2025/06/12 15:59:49 [                 gtfs_upcoming.main 124634004029568]       INFO Starting HTTP server on port 6824
 ```
 
@@ -80,7 +80,7 @@ This project is built with [Hatch](https://hatch.pypa.io/latest/). This is a cha
 June 2025, previously the project was built with Bazel.
 
 ```sh
-% hatch run gtfs-upcoming -- [--config CONFIG] [--gtfs GTFS] [--port PORT] [--provider {nta,vicroads}] [--env {prod,test,metrotrain,tram}] 
+% hatch run gtfs-upcoming -- [--config CONFIG] [--gtfs GTFS] [--port PORT] [--provider {nta,transportvictoria}] [--env {prod,test,metrotrain,tram}] 
 ```
 
 To build a wheel (e.g; to install with `pip`) use this. The `whl` file will emit into the `dist/` directory.
@@ -103,7 +103,7 @@ To build:
 Example run:
 
 ```sh
-% docker run -v path-to-gtfs-and-config:/gtfs -e GTFS_PROVIDER=vicroads -e GTFS_ENVIRONMENT=metrotrain -p 6824:6824 -p 6825:6825 gtfs-upcoming
+% docker run -v path-to-gtfs-and-config:/gtfs -e GTFS_PROVIDER=transportvictoria -e GTFS_ENVIRONMENT=metrotrain -p 6824:6824 -p 6825:6825 gtfs-upcoming
 ```
 
 ## Data and Configuration
@@ -115,7 +115,7 @@ stop times, and agencies) in order to interpret the realtime data
 correctly. This is available from your GTFS-R provider.
 
 For the Irish NTA, that is [here](https://www.transportforireland.ie/transitData/google_transit_combined.zip).
-For VicRoads/PTV, that is [here](https://data.ptv.vic.gov.au/downloads/gtfs.zip).
+For Transport Victoria, that is [here](https://opendata.transport.vic.gov.au/dataset/3f4e292e-7f8a-4ffe-831f-1953be0fe448/resource/e4966d78-dc64-4a1d-a751-2470c9eaf034/download/gtfs.zip).
 
 These datasets can change, sometimes quite a bit, at unpredictable intervals. It's recommended
 to setup a regular refresh -- once a week has worked well for me.
