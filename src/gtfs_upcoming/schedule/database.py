@@ -40,7 +40,10 @@ ROUTE_TYPES = {
     '6': 'AERIAL_LIFT',
     '7': 'FUNICULAR',
     '11': 'TROLLEYBUS',
-    '12': 'MONORAIL'
+    '12': 'MONORAIL',
+
+    # See: https://developers.google.com/transit/gtfs/reference/extended-route-types
+    '400': 'RAIL'
 }
 
 CALENDAR_DAYS = [
