@@ -80,7 +80,7 @@ This project is built with [Hatch](https://hatch.pypa.io/latest/). This is a cha
 June 2025, previously the project was built with Bazel.
 
 ```sh
-% hatch run gtfs-upcoming -- [--config CONFIG] [--gtfs GTFS] [--port PORT] [--provider {nta,transportvictoria}] [--env {prod,test,metrotrain,tram}] 
+% hatch run gtfs-upcoming -- [--config CONFIG] [--gtfs GTFS] [--port PORT] [--provider {nta,transportvictoria}] [--env {prod,test,metrotrain,tram}]
 ```
 
 To build a wheel (e.g; to install with `pip`) use this. The `whl` file will emit into the `dist/` directory.
@@ -114,7 +114,7 @@ You will need the GTFS schedule dataset (contains definitions for routes, stops,
 stop times, and agencies) in order to interpret the realtime data
 correctly. This is available from your GTFS-R provider.
 
-For the Irish NTA, that is [here](https://www.transportforireland.ie/transitData/google_transit_combined.zip).
+For the Irish NTA, that is [here](https://www.transportforireland.ie/transitData/Data/GTFS_Realtime.zip).
 For Transport Victoria, that is [here](https://opendata.transport.vic.gov.au/dataset/3f4e292e-7f8a-4ffe-831f-1953be0fe448/resource/e4966d78-dc64-4a1d-a751-2470c9eaf034/download/gtfs.zip).
 
 These datasets can change, sometimes quite a bit, at unpredictable intervals. It's recommended
@@ -122,7 +122,7 @@ to setup a regular refresh -- once a week has worked well for me.
 
 ### config.ini
 
-There is a sample config in `sample-config.ini`. 
+There is a sample config in `sample-config.ini`.
 
 Server configuration is an INI file and has two sections:
 
